@@ -1,0 +1,24 @@
+// zamkonator — WebSocket message schema
+// Depends on types from schema_config.json-gen-c (included first by schema.json-gen-c)
+
+// ── Server → client payloads ──────────────────────────────────────────────────
+
+struct ws_status_payload_t {
+    int64_t uptime;        // seconds since boot
+    int64_t time;          // Unix timestamp
+    mqtt_status_t mqtt_status;
+}
+
+struct ws_console_msg_t {
+    sstr_t payload;        // accumulated console history string
+}
+
+struct ws_status_msg_t {
+    ws_status_payload_t payload;
+}
+
+oneof ws_server_message_t {
+    @tag "cmd"
+    ws_console_msg_t console;
+    ws_status_msg_t status;
+}

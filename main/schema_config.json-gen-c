@@ -1,0 +1,43 @@
+// zamkonator — config schema
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum language_t {
+    en,
+    pl
+}
+
+enum mqtt_status_t {
+    connected,
+    connecting,
+    disconnected,
+    unconfigured
+}
+
+// Response struct for GET /api/info (unauthenticated)
+struct web_info_t {
+    bool web_password_enabled;
+    sstr_t language;
+    nullable bool web_password_valid;  // present only when X-Auth header was supplied
+}
+
+// ── Config sub-structs ────────────────────────────────────────────────────────
+
+struct mqtt_config_t {
+    bool enabled;
+    sstr_t broker;
+    int port;
+    sstr_t username;
+    sstr_t password;
+    sstr_t mqtt_prefix;
+}
+
+// Top-level persisted config
+struct gateway_config_t {
+    int version;
+    sstr_t hostname;
+    mqtt_config_t mqtt;
+    bool web_password_enabled;
+    sstr_t web_password;   // PBKDF2 hash: base64(16-byte salt) + "$" + base64(32-byte output)
+    language_t language;
+}

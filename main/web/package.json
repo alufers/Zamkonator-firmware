@@ -1,0 +1,26 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "fmt": "oxfmt src",
+    "fmt:check": "oxfmt --check src",
+    "check": "tsc --noEmit && oxlint src && oxfmt --check src"
+  },
+  "dependencies": {
+    "lucide-preact": "^1.8.0",
+    "preact": "^10.25.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "oxfmt": "^0.44.0",
+    "oxlint": "^1.59.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^6.0.2",
+    "vite": "^6.0.0"
+  }
+}
