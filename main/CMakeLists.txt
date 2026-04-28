@@ -32,7 +32,7 @@ idf_component_register(
         esp_driver_gpio
         esp_hw_support
         esp_timer
-        esp_littlefs
+        littlefs
         lwip
         mdns
         mqtt
@@ -45,22 +45,22 @@ idf_component_register(
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
 
-    # ── pnpm web build ────────────────────────────────────────────────────────
-    file(GLOB_RECURSE WEB_SRC_FILES
+  # ── pnpm web build ────────────────────────────────────────────────────────
+  file(GLOB_RECURSE WEB_SRC_FILES
         "${WEB_DIR}/src/*.ts"
         "${WEB_DIR}/src/*.tsx"
         "${WEB_DIR}/src/*.css"
         "${WEB_DIR}/index.html"
     )
-    set(WEB_CONFIG_FILES
+  set(WEB_CONFIG_FILES
         "${WEB_DIR}/package.json"
         "${WEB_DIR}/tsconfig.json"
         "${WEB_DIR}/vite.config.js"
     )
 
-    set(PNPM_STAMP "${CMAKE_CURRENT_BINARY_DIR}/pnpm_build.stamp")
+  set(PNPM_STAMP "${CMAKE_CURRENT_BINARY_DIR}/pnpm_build.stamp")
 
-    add_custom_command(
+  add_custom_command(
         OUTPUT "${PNPM_STAMP}"
         COMMAND pnpm install --frozen-lockfile
         COMMAND pnpm run build
@@ -71,17 +71,17 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         VERBATIM
     )
 
-    add_custom_target(pnpm_build DEPENDS "${PNPM_STAMP}")
-    add_dependencies(${COMPONENT_LIB} pnpm_build)
+  add_custom_target(pnpm_build DEPENDS "${PNPM_STAMP}")
+  add_dependencies(${COMPONENT_LIB} pnpm_build)
 
-    # ── Host build of json-gen-c ──────────────────────────────────────────────
-    find_program(HOST_C_COMPILER NAMES gcc cc
+  # ── Host build of json-gen-c ──────────────────────────────────────────────
+  find_program(HOST_C_COMPILER NAMES gcc cc
         REQUIRED
         NO_CMAKE_FIND_ROOT_PATH
     )
 
-    include(ExternalProject)
-    ExternalProject_Add(json_gen_c_host
+  include(ExternalProject)
+  ExternalProject_Add(json_gen_c_host
         SOURCE_DIR  "${JSON_GEN_C_SRC_DIR}"
         BINARY_DIR  "${JSON_GEN_C_HOST_DIR}"
         CMAKE_ARGS
@@ -93,15 +93,15 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         INSTALL_COMMAND ""
     )
 
-    # ── Generate C sources from schema ────────────────────────────────────────
-    set(SCHEMA_INPUT_FILES
+  # ── Generate C sources from schema ────────────────────────────────────────
+  set(SCHEMA_INPUT_FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/schema.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_config.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_ws_messages.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_mqtt_messages.json-gen-c"
     )
 
-    add_custom_command(
+  add_custom_command(
         OUTPUT
             ${SCHEMA_GEN_SRCS}
             "${SCHEMA_GEN_DIR}/json.gen.h"
@@ -117,14 +117,14 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         VERBATIM
     )
 
-    target_sources(${COMPONENT_LIB} PRIVATE ${SCHEMA_GEN_SRCS})
-    target_include_directories(${COMPONENT_LIB} PRIVATE
+  target_sources(${COMPONENT_LIB} PRIVATE ${SCHEMA_GEN_SRCS})
+  target_include_directories(${COMPONENT_LIB} PRIVATE
         "${SCHEMA_GEN_DIR}"
         "${JSON_GEN_C_SRC_DIR}/src"
     )
 
-    add_custom_target(schema_codegen DEPENDS ${SCHEMA_GEN_SRCS})
-    add_dependencies(schema_codegen json_gen_c_host)
-    add_dependencies(${COMPONENT_LIB} schema_codegen)
+  add_custom_target(schema_codegen DEPENDS ${SCHEMA_GEN_SRCS})
+  add_dependencies(schema_codegen json_gen_c_host)
+  add_dependencies(${COMPONENT_LIB} schema_codegen)
 
 endif()
