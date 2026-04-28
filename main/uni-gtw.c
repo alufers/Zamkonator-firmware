@@ -13,6 +13,7 @@
 #include "mqtt.h"
 #include "sdcard.h"
 #include "webserver.h"
+#include "wiegand.h"
 
 static const char *TAG = "zamkonator";
 
@@ -84,6 +85,9 @@ void app_main(void)
 
     /* Mount SD card and log contents */
     sdcard_init();
+
+    /* Wiegand reader */
+    wiegand_init();
 
     webserver_start_status_timer();
 }

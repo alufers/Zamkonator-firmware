@@ -23,6 +23,7 @@ idf_component_register(
         "mqtt.c"
         "utils.c"
         "sdcard.c"
+        "wiegand.c"
     INCLUDE_DIRS "."
     REQUIRES
         esp_eth

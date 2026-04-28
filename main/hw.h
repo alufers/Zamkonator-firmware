@@ -24,3 +24,8 @@
 #define HW_SD_MOSI_GPIO  15   /* CMD      */
 #define HW_SD_CLK_GPIO   14   /* CLK      */
 #define HW_SD_MISO_GPIO   2   /* DAT0     */
+
+/* ── Wiegand reader ──────────────────────────────────────────────────────── */
+/* Signals are inverted by optocouplers: idle=LOW, pulse=rising edge (HIGH). */
+#define HW_WIEGAND_DAT0_GPIO  34
+#define HW_WIEGAND_DAT1_GPIO  35
