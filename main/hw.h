@@ -17,3 +17,10 @@
  * If the ESP32 must generate the clock instead, change clock_mode in
  * ethernet_manager.c to EMAC_CLK_OUT and set this to 16 or 17 (inverted). */
 #define HW_ETH_RMII_CLK_GPIO  0
+
+/* ── SD card: SPI mode via SPI2 (HSPI) ──────────────────────────────────── */
+
+#define HW_SD_CS_GPIO    13   /* DAT3/nCS */
+#define HW_SD_MOSI_GPIO  15   /* CMD      */
+#define HW_SD_CLK_GPIO   14   /* CLK      */
+#define HW_SD_MISO_GPIO   2   /* DAT0     */

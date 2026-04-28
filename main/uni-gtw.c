@@ -11,6 +11,7 @@
 #include "esp_littlefs.h"
 #include "ethernet_manager.h"
 #include "mqtt.h"
+#include "sdcard.h"
 #include "webserver.h"
 
 static const char *TAG = "zamkonator";
@@ -80,6 +81,9 @@ void app_main(void)
 
     /* MQTT init */
     mqtt_init();
+
+    /* Mount SD card and log contents */
+    sdcard_init();
 
     webserver_start_status_timer();
 }

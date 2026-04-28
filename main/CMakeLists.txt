@@ -22,6 +22,7 @@ idf_component_register(
         "background_worker.c"
         "mqtt.c"
         "utils.c"
+        "sdcard.c"
     INCLUDE_DIRS "."
     REQUIRES
         esp_eth
@@ -30,6 +31,8 @@ idf_component_register(
         esp_event
         esp_netif
         esp_driver_gpio
+        esp_driver_spi
+        esp_driver_sdspi
         esp_hw_support
         esp_timer
         littlefs
@@ -37,6 +40,8 @@ idf_component_register(
         mdns
         mqtt
         mbedtls
+        fatfs
+        sdmmc
     EMBED_FILES
         ${WEB_DIST_DIR}/index.html
         ${WEB_DIST_DIR}/app.js
