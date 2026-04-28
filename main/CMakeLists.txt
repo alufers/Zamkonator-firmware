@@ -27,6 +27,7 @@ idf_component_register(
         "wiegand.c"
         "outputs.c"
         "auth_proxy.c"
+        "digital_inputs.c"
     INCLUDE_DIRS "."
     REQUIRES
         esp_eth

@@ -29,9 +29,18 @@ esp_err_t tca_io_init(void)
         return ret;
     }
 
+    /* Drive all output-capable bits LOW before switching their direction from
+     * input to output. The TCA9555 output register resets to all-HIGH, so
+     * without this the relay (pin 8) would briefly activate on every boot. */
+    ret = tca95x5_port_write(&s_tca_dev, 0x0000);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "port_write(0) failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     /* Configure direction: 0=output, 1=input.
      * Outputs: STATUS_RED(3), STATUS_GREEN(4), RELAY(8), BEEPER(13), READER_LED(14).
-     * All other pins (including AUX_INP bit7, SD_DETECT bit12) remain inputs. */
+     * All other pins (including INP1 bit7, SD_DETECT bit12) remain inputs. */
     ret = tca95x5_port_set_mode(&s_tca_dev, 0x9EE7);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "port_set_mode failed: %s", esp_err_to_name(ret));
@@ -49,6 +58,25 @@ esp_err_t tca_io_set_level(uint8_t pin, bool level)
     if (!s_initialized)
         return ESP_ERR_INVALID_STATE;
     return tca95x5_set_level(&s_tca_dev, pin, level ? 1 : 0);
+}
+
+esp_err_t tca_io_port_read(uint16_t *val)
+{
+    if (!s_initialized)
+        return ESP_ERR_INVALID_STATE;
+    return tca95x5_port_read(&s_tca_dev, val);
+}
+
+esp_err_t tca_io_read_input(uint8_t pin, bool *level)
+{
+    if (!s_initialized)
+        return ESP_ERR_INVALID_STATE;
+    uint32_t raw = 0;
+    esp_err_t ret = tca95x5_get_level(&s_tca_dev, pin, &raw);
+    if (ret != ESP_OK)
+        return ret;
+    *level = (raw != 0);
+    return ESP_OK;
 }
 
 esp_err_t tca_io_read_sd_detect(bool *present)

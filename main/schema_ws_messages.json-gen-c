@@ -9,6 +9,8 @@ struct ws_status_payload_t {
     mqtt_status_t mqtt_status;
     bool sd_card_mounted;  // true when FAT volume is mounted
     bool auth_proxy_healthy;
+    nullable bool door_close_sensor_closed;  // null if not configured
+    nullable bool door_lock_sensor_locked;   // null if not configured
 }
 
 struct ws_console_msg_t {

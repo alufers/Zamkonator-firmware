@@ -1,5 +1,14 @@
 // zamkonator — config schema
 
+// ── Digital input enums ───────────────────────────────────────────────────────
+
+enum digital_input_mode_t {
+    none,
+    push_to_exit,
+    door_close_sensor,
+    door_lock_sensor
+}
+
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
 enum language_t {
@@ -23,6 +32,12 @@ struct web_info_t {
 
 // ── Config sub-structs ────────────────────────────────────────────────────────
 
+struct digital_input_config_t {
+    digital_input_mode_t mode;
+    bool inverted;
+    int debounce_ms;
+}
+
 struct mqtt_config_t {
     bool enabled;
     sstr_t broker;
@@ -44,4 +59,6 @@ struct gateway_config_t {
     int    auth_proxy_timeout_ms;
     int    auth_proxy_healthcheck_interval_ms;
     int    relay_open_ms;
+    digital_input_config_t input_inp1;
+    sstr_t remote_open_password;
 }

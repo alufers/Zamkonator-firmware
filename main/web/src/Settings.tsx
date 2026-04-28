@@ -3,6 +3,14 @@ import { AuthContext } from "./AuthContext";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
+type DigitalInputMode = "none" | "push_to_exit" | "door_close_sensor" | "door_lock_sensor";
+
+interface DigitalInputConfig {
+  mode: DigitalInputMode;
+  inverted: boolean;
+  debounce_ms: number;
+}
+
 interface MqttConfig {
   enabled: boolean;
   broker: string;
@@ -21,6 +29,8 @@ export interface SettingsData {
   mqtt: MqttConfig;
   web_password_enabled: boolean;
   web_password: string;
+  remote_open_password: string;
+  input_inp1: DigitalInputConfig;
 }
 
 type SaveStatus = "idle" | "loading" | "saving" | "saved" | "rebooting" | "error";
@@ -254,6 +264,80 @@ export function Settings() {
             </div>
           </section>
 
+          {/* ── Digital Inputs ───────────────────────────────────────── */}
+          <section class="mb-6">
+            <h3 class="text-xs font-semibold text-zinc-400 mb-3 uppercase tracking-wide">
+              Digital Inputs
+            </h3>
+
+            <p class="text-zinc-500 text-xs mb-3">INP1 (P0.7)</p>
+
+            <div class="flex gap-4 flex-wrap mb-3">
+              <div>
+                <label class="block mb-1 text-xs text-zinc-400">Mode</label>
+                <select
+                  value={draft.input_inp1.mode}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      input_inp1: {
+                        ...draft.input_inp1,
+                        mode: (e.target as HTMLSelectElement).value as DigitalInputMode,
+                      },
+                    })
+                  }
+                  class="bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+                >
+                  <option value="none">None</option>
+                  <option value="push_to_exit">Push to Exit</option>
+                  <option value="door_close_sensor">Door Close Sensor</option>
+                  <option value="door_lock_sensor">Door Lock Sensor</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block mb-1 text-xs text-zinc-400">Debounce</label>
+                <div class="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={draft.input_inp1.debounce_ms}
+                    min={0}
+                    max={5000}
+                    onInput={(e) =>
+                      setDraft({
+                        ...draft,
+                        input_inp1: {
+                          ...draft.input_inp1,
+                          debounce_ms: Math.min(5000, Math.max(0, parseInt((e.target as HTMLInputElement).value) || 300)),
+                        },
+                      })
+                    }
+                    class="w-24 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+                  />
+                  <span class="text-zinc-500 text-xs">ms</span>
+                </div>
+              </div>
+            </div>
+
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draft.input_inp1.inverted}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    input_inp1: {
+                      ...draft.input_inp1,
+                      inverted: (e.target as HTMLInputElement).checked,
+                    },
+                  })
+                }
+                class="w-4 h-4 accent-blue-500"
+              />
+              <span class="text-xs text-zinc-300">Inverted (active-low signal)</span>
+            </label>
+          </section>
+
           {/* ── MQTT ─────────────────────────────────────────────────── */}
           <section class="mb-6">
             <h3 class="text-xs font-semibold text-zinc-400 mb-3 uppercase tracking-wide">MQTT</h3>
@@ -357,6 +441,21 @@ export function Settings() {
                 </p>
               </div>
             )}
+
+            <div class="mt-4">
+              <label class="block mb-1 text-xs text-zinc-400">Remote open password</label>
+              <input
+                type="password"
+                value={draft.remote_open_password}
+                onInput={(e) =>
+                  setDraft({ ...draft, remote_open_password: (e.target as HTMLInputElement).value })
+                }
+                class="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono mb-1"
+              />
+              <p class="text-zinc-600 text-xs">
+                Password for <span class="text-zinc-400 font-mono">POST /api/open</span>. Leave blank to disable remote relay opening.
+              </p>
+            </div>
           </section>
 
           {/* ── Save ─────────────────────────────────────────────────── */}

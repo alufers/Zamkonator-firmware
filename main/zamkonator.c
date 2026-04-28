@@ -9,6 +9,7 @@
 #include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
+#include "digital_inputs.h"
 #include "esp_littlefs.h"
 #include "ethernet_manager.h"
 #include "mqtt.h"
@@ -29,6 +30,19 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    /* Event loop must exist before outputs_init() registers IP event handlers. */
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* Bring TCA and outputs up immediately — before any filesystem or network
+     * work that could take seconds — so LEDs settle to the correct base state
+     * within milliseconds of boot. */
+    ret = tca_io_init();
+    if (ret != ESP_OK)
+        ESP_LOGW(TAG, "TCA9555 init failed: %s — outputs and SD detect unavailable",
+                 esp_err_to_name(ret));
+
+    outputs_init();
 
     esp_vfs_littlefs_conf_t conf = {
         .base_path             = "/littlefs",
@@ -58,7 +72,6 @@ void app_main(void)
 
     /* Init network stack before anything that opens sockets */
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     webserver_early_init();
     webserver_start();
@@ -86,15 +99,6 @@ void app_main(void)
     /* MQTT init */
     mqtt_init();
 
-    /* TCA9555 I/O expander (needed for SD card detect and outputs) */
-    ret = tca_io_init();
-    if (ret != ESP_OK)
-        ESP_LOGW(TAG, "TCA9555 init failed: %s — SD card detect unavailable",
-                 esp_err_to_name(ret));
-
-    /* Physical outputs (relay, LEDs, beeper) */
-    outputs_init();
-
     /* Auth proxy health monitor (uses outputs, must come after outputs_init) */
     auth_proxy_monitor_init();
 
@@ -103,4 +107,7 @@ void app_main(void)
 
     /* Wiegand reader */
     wiegand_init();
+
+    /* Digital input polling task */
+    digital_inputs_init();
 }

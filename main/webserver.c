@@ -2,8 +2,10 @@
 #include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
+#include "digital_inputs.h"
 #include "ethernet_manager.h"
 #include "mqtt.h"
+#include "outputs.h"
 #include "sdcard.h"
 #include "utils.h"
 
@@ -88,6 +90,16 @@ static esp_err_t status_get_handler(httpd_req_t *req)
     p.sd_card_mounted    = sdcard_is_mounted();
     p.auth_proxy_healthy = auth_proxy_is_healthy();
 
+    bool sensor_val;
+    if (digital_inputs_door_close_state(&sensor_val)) {
+        p.has_door_close_sensor_closed = 1;
+        p.door_close_sensor_closed     = sensor_val;
+    }
+    if (digital_inputs_door_lock_state(&sensor_val)) {
+        p.has_door_lock_sensor_locked = 1;
+        p.door_lock_sensor_locked     = sensor_val;
+    }
+
     sstr_t json = sstr_new();
     json_marshal_indent_ws_status_payload_t(&p, 0, 0, json);
     ws_status_payload_t_clear(&p);
@@ -135,6 +147,8 @@ static void apply_settings_from_buf(const char *buf, int len)
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_auth_proxy_timeout_ms);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_auth_proxy_healthcheck_interval_ms);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_relay_open_ms);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_input_inp1);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_remote_open_password);
 
     config_lock();
     sstr_t prev_pw = sstr_dup(g_config.web_password);
@@ -500,6 +514,55 @@ static esp_err_t files_download_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* ── /api/open ───────────────────────────────────────────────────────────── */
+
+static esp_err_t open_post_handler(httpd_req_t *req)
+{
+    char query[512] = {0};
+    httpd_req_get_url_query_str(req, query, sizeof(query));
+
+    char pw_param[128] = {0};
+    httpd_query_key_value(query, "password", pw_param, sizeof(pw_param));
+
+    char reason[128] = {0};
+    httpd_query_key_value(query, "reason", reason, sizeof(reason));
+
+    char open_time_str[32] = {0};
+    httpd_query_key_value(query, "open_time_ms", open_time_str, sizeof(open_time_str));
+
+    config_lock();
+    bool enabled = sstr_length(g_config.remote_open_password) > 0;
+    bool ok = enabled &&
+              strcmp(pw_param, sstr_cstr(g_config.remote_open_password)) == 0;
+    int relay_open_ms = g_config.relay_open_ms;
+    config_unlock();
+
+    if (!enabled) {
+        httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "remote open not configured");
+        return ESP_OK;
+    }
+    if (!ok) {
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "wrong password");
+        return ESP_OK;
+    }
+
+    if (open_time_str[0]) {
+        int override_ms = atoi(open_time_str);
+        if (override_ms >= 100 && override_ms <= 60000)
+            relay_open_ms = override_ms;
+    }
+
+    ESP_LOGI(TAG, "Remote open: reason='%s' open_time_ms=%d",
+             reason[0] ? reason : "(none)", relay_open_ms);
+
+    outputs_play_pattern(OUTPUT_RELAY,      relay_open_ms, 0, 1);
+    outputs_play_pattern(OUTPUT_LED_READER, relay_open_ms, 0, 1);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
 /* ── Early init ──────────────────────────────────────────────────────────── */
 
 void webserver_early_init(void)
@@ -514,7 +577,7 @@ void webserver_start(void)
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 12;
+    config.max_uri_handlers = 13;
     config.stack_size       = 8192;
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
@@ -572,6 +635,11 @@ void webserver_start(void)
         .method  = HTTP_GET,
         .handler = files_download_handler,
     };
+    static const httpd_uri_t uri_open_post = {
+        .uri     = "/api/open",
+        .method  = HTTP_POST,
+        .handler = open_post_handler,
+    };
 
     httpd_register_uri_handler(s_server, &uri_root);
     httpd_register_uri_handler(s_server, &uri_js);
@@ -584,6 +652,7 @@ void webserver_start(void)
     httpd_register_uri_handler(s_server, &uri_info_get);
     httpd_register_uri_handler(s_server, &uri_files_list);
     httpd_register_uri_handler(s_server, &uri_files_download);
+    httpd_register_uri_handler(s_server, &uri_open_post);
 
     ESP_LOGI(TAG, "HTTP server started");
 }

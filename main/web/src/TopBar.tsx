@@ -1,4 +1,4 @@
-import { Clock, ClockArrowUp, HardDrive, LogOut, Server, ShieldCheck, ShieldAlert } from "lucide-preact";
+import { Clock, ClockArrowUp, DoorClosed, DoorOpen, HardDrive, Lock, LockOpen, LogOut, Server, ShieldCheck, ShieldAlert } from "lucide-preact";
 import { Button } from "./ui/Button";
 import { Chip } from "./ui/Chip";
 import { StatusPayload, MqttStatus } from "./wsTypes";
@@ -84,6 +84,38 @@ export function TopBar({ status, mqttStatus, onLogout }: TopBarProps) {
         >
           <HardDrive size={13} class="shrink-0" />
           {status.sd_card_mounted ? "SD" : "No SD"}
+        </Chip>
+      )}
+
+      {status && status.door_close_sensor_closed != null && (
+        <Chip
+          class={
+            status.door_close_sensor_closed
+              ? "text-green-400 border-green-900"
+              : "text-amber-400 border-amber-900"
+          }
+          title={status.door_close_sensor_closed ? "Door closed" : "Door open"}
+        >
+          {status.door_close_sensor_closed
+            ? <DoorClosed size={13} class="shrink-0" />
+            : <DoorOpen size={13} class="shrink-0" />}
+          {status.door_close_sensor_closed ? "Closed" : "Open"}
+        </Chip>
+      )}
+
+      {status && status.door_lock_sensor_locked != null && (
+        <Chip
+          class={
+            status.door_lock_sensor_locked
+              ? "text-green-400 border-green-900"
+              : "text-amber-400 border-amber-900"
+          }
+          title={status.door_lock_sensor_locked ? "Lock locked" : "Lock unlocked"}
+        >
+          {status.door_lock_sensor_locked
+            ? <Lock size={13} class="shrink-0" />
+            : <LockOpen size={13} class="shrink-0" />}
+          {status.door_lock_sensor_locked ? "Locked" : "Unlocked"}
         </Chip>
       )}
 

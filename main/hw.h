@@ -40,6 +40,9 @@
  * Datasheet "P14" = Port 1 bit 4 = index 12. No P7 or P8 exist in scheme. */
 #define HW_TCA_SD_DETECT_PIN     12   /* P1.4; LOW = card present (active-low) */
 
+/* Input pins */
+#define HW_TCA_INP1_PIN          7    /* P0.7 = INP1 (digital input 1) */
+
 /* Output pins */
 #define HW_TCA_STATUS_RED_PIN    3    /* P0.3 = STATUS_LED_RED  */
 #define HW_TCA_STATUS_GREEN_PIN  4    /* P0.4 = STATUS_LED_GREEN */

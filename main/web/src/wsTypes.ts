@@ -12,4 +12,6 @@ export interface StatusPayload {
   mqtt_status: MqttStatus;
   sd_card_mounted: boolean;
   auth_proxy_healthy: boolean;
+  door_close_sensor_closed?: boolean | null;
+  door_lock_sensor_locked?: boolean | null;
 }
