@@ -102,6 +102,10 @@ void config_init(void)
     g_config.web_password_enabled = 0;
     g_config.web_password    = sstr("");
     g_config.mqtt.mqtt_prefix = sstr("zamkonator");
+    g_config.auth_proxy_base_url                   = sstr("");
+    g_config.auth_proxy_timeout_ms                 = 10000;
+    g_config.auth_proxy_healthcheck_interval_ms    = 30000;
+    g_config.relay_open_ms                         = 8000;
 
     set_default_hostname();
     do_load();

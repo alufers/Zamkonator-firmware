@@ -7,6 +7,9 @@
  * Must be called once before any task that reads TCA pins. */
 esp_err_t tca_io_init(void);
 
+/* Set an output pin level. Pin must have been configured as output in tca_io_init(). */
+esp_err_t tca_io_set_level(uint8_t pin, bool level);
+
 /* Read SD card detect pin (TCA P1.4, driver index 12).
  * Sets *present = true when card is physically inserted (active-low pin). */
 esp_err_t tca_io_read_sd_detect(bool *present);

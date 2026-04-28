@@ -25,10 +25,13 @@ idf_component_register(
         "sdcard.c"
         "tca_io.c"
         "wiegand.c"
+        "outputs.c"
+        "auth_proxy.c"
     INCLUDE_DIRS "."
     REQUIRES
         esp_eth
         esp_http_server
+        esp_http_client
         nvs_flash
         esp_event
         esp_netif
@@ -107,6 +110,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_config.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_ws_messages.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_mqtt_messages.json-gen-c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/schema_auth_proxy.json-gen-c"
     )
 
   add_custom_command(

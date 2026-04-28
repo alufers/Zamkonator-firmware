@@ -1,4 +1,5 @@
 #include "webserver.h"
+#include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
 #include "ethernet_manager.h"
@@ -81,10 +82,11 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 
     struct ws_status_payload_t p;
     ws_status_payload_t_init(&p);
-    p.uptime          = esp_timer_get_time() / 1000000LL;
-    p.time            = (int64_t)time(NULL);
-    p.mqtt_status     = g_mqtt_status;
-    p.sd_card_mounted = sdcard_is_mounted();
+    p.uptime             = esp_timer_get_time() / 1000000LL;
+    p.time               = (int64_t)time(NULL);
+    p.mqtt_status        = g_mqtt_status;
+    p.sd_card_mounted    = sdcard_is_mounted();
+    p.auth_proxy_healthy = auth_proxy_is_healthy();
 
     sstr_t json = sstr_new();
     json_marshal_indent_ws_status_payload_t(&p, 0, 0, json);
@@ -129,6 +131,10 @@ static void apply_settings_from_buf(const char *buf, int len)
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_web_password_enabled);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_web_password);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_language);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_auth_proxy_base_url);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_auth_proxy_timeout_ms);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_auth_proxy_healthcheck_interval_ms);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_relay_open_ms);
 
     config_lock();
     sstr_t prev_pw = sstr_dup(g_config.web_password);

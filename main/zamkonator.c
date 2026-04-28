@@ -6,11 +6,13 @@
 #include "nvs_flash.h"
 #include "mdns.h"
 
+#include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
 #include "esp_littlefs.h"
 #include "ethernet_manager.h"
 #include "mqtt.h"
+#include "outputs.h"
 #include "sdcard.h"
 #include "tca_io.h"
 #include "webserver.h"
@@ -84,11 +86,17 @@ void app_main(void)
     /* MQTT init */
     mqtt_init();
 
-    /* TCA9555 I/O expander (needed for SD card detect pin) */
+    /* TCA9555 I/O expander (needed for SD card detect and outputs) */
     ret = tca_io_init();
     if (ret != ESP_OK)
         ESP_LOGW(TAG, "TCA9555 init failed: %s — SD card detect unavailable",
                  esp_err_to_name(ret));
+
+    /* Physical outputs (relay, LEDs, beeper) */
+    outputs_init();
+
+    /* Auth proxy health monitor (uses outputs, must come after outputs_init) */
+    auth_proxy_monitor_init();
 
     /* SD card hotplug task */
     sdcard_init();

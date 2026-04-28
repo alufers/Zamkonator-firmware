@@ -9,7 +9,6 @@
 #include "sdmmc_cmd.h"
 #include "driver/sdspi_host.h"
 #include "driver/spi_master.h"
-#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 static const char *TAG = "sdcard";
@@ -22,22 +21,6 @@ static spi_host_device_t s_spi_slot;
 bool sdcard_is_mounted(void)
 {
     return s_mounted;
-}
-
-static void sdcard_list_root(void)
-{
-    DIR *dir = opendir(SDCARD_MOUNT_POINT);
-    if (!dir) {
-        ESP_LOGW(TAG, "Could not open root directory");
-        return;
-    }
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        ESP_LOGI(TAG, "  %s %s",
-                 ent->d_type == DT_DIR ? "[DIR]" : "     ",
-                 ent->d_name);
-    }
-    closedir(dir);
 }
 
 static void sdcard_mount(void)
@@ -66,7 +49,6 @@ static void sdcard_mount(void)
     sdmmc_card_print_info(stdout, card);
     ESP_LOGI(TAG, "SD card mounted at " SDCARD_MOUNT_POINT " (%llu MB)",
              (uint64_t)card->csd.capacity * card->csd.sector_size / (1024 * 1024));
-    sdcard_list_root();
 }
 
 static void sdcard_unmount(void)

@@ -1,4 +1,4 @@
-import { Clock, ClockArrowUp, HardDrive, LogOut, Server } from "lucide-preact";
+import { Clock, ClockArrowUp, HardDrive, LogOut, Server, ShieldCheck, ShieldAlert } from "lucide-preact";
 import { Button } from "./ui/Button";
 import { Chip } from "./ui/Chip";
 import { StatusPayload, MqttStatus } from "./wsTypes";
@@ -54,6 +54,22 @@ export function TopBar({ status, mqttStatus, onLogout }: TopBarProps) {
         <Chip class={mqttChip.cls} title={mqttChip.label}>
           <Server size={13} class="shrink-0" />
           {mqttChip.label}
+        </Chip>
+      )}
+
+      {status && (
+        <Chip
+          class={
+            status.auth_proxy_healthy
+              ? "text-green-400 border-green-900"
+              : "text-red-400 border-red-900"
+          }
+          title={status.auth_proxy_healthy ? "Auth proxy reachable" : "Auth proxy unreachable"}
+        >
+          {status.auth_proxy_healthy
+            ? <ShieldCheck size={13} class="shrink-0" />
+            : <ShieldAlert size={13} class="shrink-0" />}
+          {status.auth_proxy_healthy ? "Auth" : "No auth"}
         </Chip>
       )}
 

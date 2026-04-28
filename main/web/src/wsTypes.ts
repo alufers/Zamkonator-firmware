@@ -11,4 +11,5 @@ export interface StatusPayload {
   time: number;
   mqtt_status: MqttStatus;
   sd_card_mounted: boolean;
+  auth_proxy_healthy: boolean;
 }

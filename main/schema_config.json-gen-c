@@ -40,4 +40,8 @@ struct gateway_config_t {
     bool web_password_enabled;
     sstr_t web_password;   // PBKDF2 hash: base64(16-byte salt) + "$" + base64(32-byte output)
     language_t language;
+    sstr_t auth_proxy_base_url;
+    int    auth_proxy_timeout_ms;
+    int    auth_proxy_healthcheck_interval_ms;
+    int    relay_open_ms;
 }

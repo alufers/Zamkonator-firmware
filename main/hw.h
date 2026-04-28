@@ -38,4 +38,11 @@
 
 /* Pin numbering: driver uses linear 0-15 (P0.x = x, P1.x = 8+x).
  * Datasheet "P14" = Port 1 bit 4 = index 12. No P7 or P8 exist in scheme. */
-#define HW_TCA_SD_DETECT_PIN  12   /* P1.4; LOW = card present (active-low) */
+#define HW_TCA_SD_DETECT_PIN     12   /* P1.4; LOW = card present (active-low) */
+
+/* Output pins */
+#define HW_TCA_STATUS_RED_PIN    3    /* P0.3 = STATUS_LED_RED  */
+#define HW_TCA_STATUS_GREEN_PIN  4    /* P0.4 = STATUS_LED_GREEN */
+#define HW_TCA_RELAY_PIN         8    /* P1.0 = RELAY_CTL       */
+#define HW_TCA_BEEPER_PIN        13   /* P1.5 = BUZ_CTL         */
+#define HW_TCA_READER_LED_PIN    14   /* P1.6 = LED_CTL         */

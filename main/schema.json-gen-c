@@ -1,3 +1,4 @@
 #include "schema_config.json-gen-c"
 #include "schema_ws_messages.json-gen-c"
 #include "schema_mqtt_messages.json-gen-c"
+#include "schema_auth_proxy.json-gen-c"

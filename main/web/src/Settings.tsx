@@ -14,6 +14,10 @@ interface MqttConfig {
 
 export interface SettingsData {
   hostname: string;
+  auth_proxy_base_url: string;
+  auth_proxy_timeout_ms: number;
+  auth_proxy_healthcheck_interval_ms: number;
+  relay_open_ms: number;
   mqtt: MqttConfig;
   web_password_enabled: boolean;
   web_password: string;
@@ -167,6 +171,87 @@ export function Settings() {
               Reachable via mDNS as{" "}
               <span class="text-zinc-400 font-mono">{draft.hostname}.local</span>
             </p>
+          </section>
+
+          {/* ── Access Control ───────────────────────────────────────── */}
+          <section class="mb-6">
+            <h3 class="text-xs font-semibold text-zinc-400 mb-3 uppercase tracking-wide">
+              Access Control
+            </h3>
+
+            <label class="block mb-1 text-xs text-zinc-400">Auth proxy URL</label>
+            <input
+              type="text"
+              value={draft.auth_proxy_base_url}
+              placeholder="http://auth-proxy.local:8000"
+              onInput={(e) =>
+                setDraft({ ...draft, auth_proxy_base_url: (e.target as HTMLInputElement).value })
+              }
+              class="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono mb-1"
+            />
+            <p class="text-zinc-600 text-xs mb-3">
+              Leave blank to disable card authentication.
+            </p>
+
+            <div class="flex gap-4 flex-wrap">
+              <div>
+                <label class="block mb-1 text-xs text-zinc-400">Auth proxy timeout</label>
+                <div class="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={draft.auth_proxy_timeout_ms}
+                    min={100}
+                    max={60000}
+                    onInput={(e) =>
+                      setDraft({
+                        ...draft,
+                        auth_proxy_timeout_ms: Math.min(60000, Math.max(100, parseInt((e.target as HTMLInputElement).value) || 10000)),
+                      })
+                    }
+                    class="w-28 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+                  />
+                  <span class="text-zinc-500 text-xs">ms</span>
+                </div>
+              </div>
+              <div>
+                <label class="block mb-1 text-xs text-zinc-400">Health check interval</label>
+                <div class="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={draft.auth_proxy_healthcheck_interval_ms}
+                    min={1000}
+                    max={300000}
+                    onInput={(e) =>
+                      setDraft({
+                        ...draft,
+                        auth_proxy_healthcheck_interval_ms: Math.min(300000, Math.max(1000, parseInt((e.target as HTMLInputElement).value) || 30000)),
+                      })
+                    }
+                    class="w-28 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+                  />
+                  <span class="text-zinc-500 text-xs">ms</span>
+                </div>
+              </div>
+              <div>
+                <label class="block mb-1 text-xs text-zinc-400">Relay open time</label>
+                <div class="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={draft.relay_open_ms}
+                    min={100}
+                    max={60000}
+                    onInput={(e) =>
+                      setDraft({
+                        ...draft,
+                        relay_open_ms: Math.min(60000, Math.max(100, parseInt((e.target as HTMLInputElement).value) || 8000)),
+                      })
+                    }
+                    class="w-28 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+                  />
+                  <span class="text-zinc-500 text-xs">ms</span>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* ── MQTT ─────────────────────────────────────────────────── */}

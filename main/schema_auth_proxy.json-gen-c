@@ -1,0 +1,6 @@
+// zamkonator — auth-proxy response schema
+
+struct auth_proxy_user_t {
+    sstr_t uid;
+    int64_t membership_expiration;
+}

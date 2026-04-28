@@ -29,8 +29,10 @@ esp_err_t tca_io_init(void)
         return ret;
     }
 
-    /* All pins as inputs (0=out, 1=in) */
-    ret = tca95x5_port_set_mode(&s_tca_dev, 0xFFFF);
+    /* Configure direction: 0=output, 1=input.
+     * Outputs: STATUS_RED(3), STATUS_GREEN(4), RELAY(8), BEEPER(13), READER_LED(14).
+     * All other pins (including AUX_INP bit7, SD_DETECT bit12) remain inputs. */
+    ret = tca95x5_port_set_mode(&s_tca_dev, 0x9EE7);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "port_set_mode failed: %s", esp_err_to_name(ret));
         return ret;
@@ -40,6 +42,13 @@ esp_err_t tca_io_init(void)
     ESP_LOGI(TAG, "TCA9555 initialised on I2C%d SDA=%d SCL=%d addr=0x%02x",
              HW_TCA_I2C_PORT, HW_TCA_SDA_GPIO, HW_TCA_SCL_GPIO, HW_TCA_I2C_ADDR);
     return ESP_OK;
+}
+
+esp_err_t tca_io_set_level(uint8_t pin, bool level)
+{
+    if (!s_initialized)
+        return ESP_ERR_INVALID_STATE;
+    return tca95x5_set_level(&s_tca_dev, pin, level ? 1 : 0);
 }
 
 esp_err_t tca_io_read_sd_detect(bool *present)
