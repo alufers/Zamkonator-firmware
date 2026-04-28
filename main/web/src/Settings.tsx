@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { AuthContext } from "./AuthContext";
-import { Button } from "./Button";
-import { Modal } from "./Modal";
+import { Button } from "./ui/Button";
+import { Modal } from "./ui/Modal";
 
 interface MqttConfig {
   enabled: boolean;

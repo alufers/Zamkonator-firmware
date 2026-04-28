@@ -12,6 +12,7 @@
 #include "ethernet_manager.h"
 #include "mqtt.h"
 #include "sdcard.h"
+#include "tca_io.h"
 #include "webserver.h"
 #include "wiegand.h"
 
@@ -83,11 +84,15 @@ void app_main(void)
     /* MQTT init */
     mqtt_init();
 
-    /* Mount SD card and log contents */
+    /* TCA9555 I/O expander (needed for SD card detect pin) */
+    ret = tca_io_init();
+    if (ret != ESP_OK)
+        ESP_LOGW(TAG, "TCA9555 init failed: %s — SD card detect unavailable",
+                 esp_err_to_name(ret));
+
+    /* SD card hotplug task */
     sdcard_init();
 
     /* Wiegand reader */
     wiegand_init();
-
-    webserver_start_status_timer();
 }

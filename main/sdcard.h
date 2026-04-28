@@ -1,9 +1,11 @@
 #pragma once
 
-#include "esp_err.h"
+#include <stdbool.h>
 
 #define SDCARD_MOUNT_POINT "/sdcard"
 
-/* Mount the SD card via SPI and list the root directory.
- * Must be called after webserver_early_init() (uses gtw_console_log). */
-esp_err_t sdcard_init(void);
+/* Spawn the SD card hotplug task. Must be called after tca_io_init(). */
+void sdcard_init(void);
+
+/* Returns true if the SD card FAT volume is currently mounted. Thread-safe. */
+bool sdcard_is_mounted(void);

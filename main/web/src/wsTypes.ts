@@ -10,8 +10,5 @@ export interface StatusPayload {
   uptime: number;
   time: number;
   mqtt_status: MqttStatus;
+  sd_card_mounted: boolean;
 }
-
-export type WsMessage =
-  | { cmd: "console"; payload: string }
-  | { cmd: "status"; payload: StatusPayload };

@@ -3,42 +3,30 @@
 #include "config.h"
 #include "ethernet_manager.h"
 #include "mqtt.h"
+#include "sdcard.h"
 #include "utils.h"
 
+#include <ctype.h>
+#include <dirent.h>
 #include <string.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <time.h>
 
 #include "esp_system.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/task.h"
 #include "mdns.h"
 
 static const char *TAG = "webserver";
 
 extern int g_mqtt_status; /* enum mqtt_status_t */
 
-/* ── Config ──────────────────────────────────────────────────────────────── */
-
-#define MAX_WS_CLIENTS    8
-#define CONSOLE_BUF_SIZE  512
-#define HISTORY_BUF_SIZE  4096
-
 /* ── State ───────────────────────────────────────────────────────────────── */
 
-static httpd_handle_t    s_server   = NULL;
-static int               s_ws_fds[MAX_WS_CLIENTS];
-static SemaphoreHandle_t s_ws_mutex;
-
-static char  s_history[HISTORY_BUF_SIZE];
-static int   s_history_write = 0;
-static bool  s_history_full  = false;
+static httpd_handle_t s_server = NULL;
 
 /* ── Auth ────────────────────────────────────────────────────────────────── */
 
@@ -85,295 +73,27 @@ STATIC_FILE_HANDLER(index_html, "text/html")
 STATIC_FILE_HANDLER(app_js,    "application/javascript")
 STATIC_FILE_HANDLER(app_css,   "text/css")
 
-/* ── History buffer ──────────────────────────────────────────────────────── */
+/* ── /api/status ─────────────────────────────────────────────────────────── */
 
-static void history_append_locked(const char *str, size_t len)
+static esp_err_t status_get_handler(httpd_req_t *req)
 {
-    for (size_t i = 0; i < len; i++) {
-        s_history[s_history_write] = str[i];
-        s_history_write = (s_history_write + 1) % HISTORY_BUF_SIZE;
-        if (s_history_write == 0)
-            s_history_full = true;
-    }
-}
+    REQUIRE_AUTH(req);
 
-static char *history_snapshot(size_t *out_len)
-{
-    xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
+    struct ws_status_payload_t p;
+    ws_status_payload_t_init(&p);
+    p.uptime          = esp_timer_get_time() / 1000000LL;
+    p.time            = (int64_t)time(NULL);
+    p.mqtt_status     = g_mqtt_status;
+    p.sd_card_mounted = sdcard_is_mounted();
 
-    int len  = s_history_full ? HISTORY_BUF_SIZE : s_history_write;
-    int tail = s_history_write;
+    sstr_t json = sstr_new();
+    json_marshal_indent_ws_status_payload_t(&p, 0, 0, json);
+    ws_status_payload_t_clear(&p);
 
-    if (len == 0) {
-        xSemaphoreGive(s_ws_mutex);
-        *out_len = 0;
-        return NULL;
-    }
-
-    char *buf = malloc((size_t)len + 1);
-    if (buf) {
-        if (!s_history_full) {
-            memcpy(buf, s_history, (size_t)len);
-        } else {
-            int first = HISTORY_BUF_SIZE - tail;
-            memcpy(buf, s_history + tail, (size_t)first);
-            memcpy(buf + first, s_history, (size_t)tail);
-        }
-        buf[len] = '\0';
-    }
-
-    xSemaphoreGive(s_ws_mutex);
-    *out_len = (size_t)len;
-    return buf;
-}
-
-/* ── WebSocket async-send helpers ────────────────────────────────────────── */
-
-typedef struct {
-    httpd_handle_t hd;
-    int            fd;
-    char           json[];
-} ws_send_work_t;
-
-static void ws_send_work(void *arg)
-{
-    ws_send_work_t *w = arg;
-    httpd_ws_frame_t pkt = {
-        .final      = true,
-        .fragmented = false,
-        .type       = HTTPD_WS_TYPE_TEXT,
-        .payload    = (uint8_t *)w->json,
-        .len        = strlen(w->json),
-    };
-    esp_err_t err = httpd_ws_send_frame_async(w->hd, w->fd, &pkt);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "WS send fd=%d failed (%d), closing session", w->fd, err);
-        xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
-        for (int i = 0; i < MAX_WS_CLIENTS; i++)
-            if (s_ws_fds[i] == w->fd) s_ws_fds[i] = -1;
-        xSemaphoreGive(s_ws_mutex);
-        httpd_sess_trigger_close(w->hd, w->fd);
-    }
-    free(w);
-}
-
-static void ws_queue_send(int fd, const char *json)
-{
-    if (!s_server) return;
-    size_t jlen = strlen(json);
-    ws_send_work_t *w = malloc(sizeof(*w) + jlen + 1);
-    if (!w) return;
-    w->hd = s_server;
-    w->fd = fd;
-    memcpy(w->json, json, jlen + 1);
-    if (httpd_queue_work(s_server, ws_send_work, w) != ESP_OK)
-        free(w);
-}
-
-/* ── WebSocket helpers ───────────────────────────────────────────────────── */
-
-static void ws_remove_fd_locked(int fd)
-{
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-        if (s_ws_fds[i] == fd) s_ws_fds[i] = -1;
-}
-
-static void ws_send_history(int fd)
-{
-    size_t hist_len;
-    char  *hist = history_snapshot(&hist_len);
-    if (!hist) return;
-
-    struct ws_server_message_t msg;
-    ws_server_message_t_init(&msg);
-    msg.tag = ws_server_message_t_console;
-    msg.value.console.payload = sstr(hist);
-    free(hist);
-
-    sstr_t out = sstr_new();
-    json_marshal_ws_server_message_t(&msg, out);
-    ws_server_message_t_clear(&msg);
-    ws_queue_send(fd, sstr_cstr(out));
-    sstr_free(out);
-}
-
-/* ── WS broadcast / send helpers (public) ───────────────────────────────── */
-
-void webserver_ws_broadcast_json(const char *json)
-{
-    if (!s_server) return;
-    xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
-    int fds[MAX_WS_CLIENTS];
-    int nfds = 0;
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-        if (s_ws_fds[i] != -1) fds[nfds++] = s_ws_fds[i];
-    xSemaphoreGive(s_ws_mutex);
-
-    for (int i = 0; i < nfds; i++)
-        ws_queue_send(fds[i], json);
-}
-
-void webserver_ws_send_json_to_fd(int fd, const char *json)
-{
-    ws_queue_send(fd, json);
-}
-
-/* ── Status broadcast ────────────────────────────────────────────────────── */
-
-static void build_and_send_status(int fd /* -1 = broadcast */)
-{
-    time_t now     = time(NULL);
-    int64_t uptime = esp_timer_get_time() / 1000000LL;
-
-    struct ws_server_message_t msg;
-    ws_server_message_t_init(&msg);
-    msg.tag = ws_server_message_t_status;
-
-    struct ws_status_payload_t *p = &msg.value.status.payload;
-    p->uptime      = uptime;
-    p->time        = (int64_t)now;
-    p->mqtt_status = g_mqtt_status;
-
-    sstr_t out = sstr_new();
-    json_marshal_ws_server_message_t(&msg, out);
-    ws_server_message_t_clear(&msg);
-
-    if (fd == -1)
-        webserver_ws_broadcast_json(sstr_cstr(out));
-    else
-        webserver_ws_send_json_to_fd(fd, sstr_cstr(out));
-    sstr_free(out);
-}
-
-static void status_timer_cb(void *arg)
-{
-    (void)arg;
-    build_and_send_status(-1);
-}
-
-void webserver_start_status_timer(void)
-{
-    esp_timer_handle_t t;
-    esp_timer_create_args_t args = {
-        .callback = status_timer_cb,
-        .name     = "ws_status",
-    };
-    ESP_ERROR_CHECK(esp_timer_create(&args, &t));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(t, 10ULL * 1000 * 1000));
-}
-
-/* ── WebSocket handler ───────────────────────────────────────────────────── */
-
-static esp_err_t ws_handler(httpd_req_t *req)
-{
-    if (req->method == HTTP_GET) {
-        /* Auth check via ?auth=<password> query param */
-        config_lock();
-        bool pw_enabled = g_config.web_password_enabled;
-        config_unlock();
-        if (pw_enabled) {
-            char query[256] = {0};
-            char auth_buf[128] = {0};
-            httpd_req_get_url_query_str(req, query, sizeof(query));
-            httpd_query_key_value(query, "auth", auth_buf, sizeof(auth_buf));
-            config_lock();
-            bool ok = utils_crypto_verify_password(auth_buf,
-                                                   sstr_cstr(g_config.web_password));
-            config_unlock();
-            if (!ok) {
-                httpd_resp_set_hdr(req, "WWW-Authenticate", "X-Auth");
-                httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
-                return ESP_OK;
-            }
-        }
-
-        int fd = httpd_req_to_sockfd(req);
-
-        xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
-        bool has_slot = false;
-        for (int i = 0; i < MAX_WS_CLIENTS; i++) {
-            if (s_ws_fds[i] == -1) { has_slot = true; break; }
-        }
-        xSemaphoreGive(s_ws_mutex);
-
-        if (!has_slot) {
-            ESP_LOGW(TAG, "WS client list full, dropping fd=%d", fd);
-            return ESP_OK;
-        }
-
-        ws_send_history(fd);
-        build_and_send_status(fd);
-
-        xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
-        for (int i = 0; i < MAX_WS_CLIENTS; i++) {
-            if (s_ws_fds[i] == -1) { s_ws_fds[i] = fd; break; }
-        }
-        xSemaphoreGive(s_ws_mutex);
-
-        ESP_LOGI(TAG, "WS client connected fd=%d", fd);
-        return ESP_OK;
-    }
-
-    httpd_ws_frame_t frame = { .type = HTTPD_WS_TYPE_TEXT };
-    esp_err_t ret = httpd_ws_recv_frame(req, &frame, 0);
-    if (ret != ESP_OK) return ret;
-
-    uint8_t *buf = NULL;
-    if (frame.len > 0) {
-        buf = calloc(1, frame.len + 1);
-        if (!buf) return ESP_ERR_NO_MEM;
-        frame.payload = buf;
-        ret = httpd_ws_recv_frame(req, &frame, frame.len);
-        if (ret != ESP_OK) { free(buf); return ret; }
-    }
-
-    if (frame.type == HTTPD_WS_TYPE_CLOSE) {
-        int fd = httpd_req_to_sockfd(req);
-        xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
-        ws_remove_fd_locked(fd);
-        xSemaphoreGive(s_ws_mutex);
-        ESP_LOGI(TAG, "WS client disconnected fd=%d", fd);
-    }
-
-    free(buf);
-    return ret;
-}
-
-/* ── gtw_console_log ─────────────────────────────────────────────────────── */
-
-void gtw_console_log(const char *fmt, ...)
-{
-    char msg[CONSOLE_BUF_SIZE];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, args);
-    va_end(args);
-
-    ESP_LOGI("gtw", "%s", msg);
-
-    xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
-    history_append_locked(msg, strlen(msg));
-    history_append_locked("\n", 1);
-    int fds[MAX_WS_CLIENTS];
-    int nfds = 0;
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-        if (s_ws_fds[i] != -1) fds[nfds++] = s_ws_fds[i];
-    xSemaphoreGive(s_ws_mutex);
-
-    if (nfds == 0 || !s_server) return;
-
-    struct ws_server_message_t ws_msg;
-    ws_server_message_t_init(&ws_msg);
-    ws_msg.tag = ws_server_message_t_console;
-    ws_msg.value.console.payload = sstr(msg);
-
-    sstr_t out = sstr_new();
-    json_marshal_ws_server_message_t(&ws_msg, out);
-    ws_server_message_t_clear(&ws_msg);
-
-    for (int i = 0; i < nfds; i++)
-        ws_queue_send(fds[i], sstr_cstr(out));
-    sstr_free(out);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, sstr_cstr(json), (ssize_t)sstr_length(json));
+    sstr_free(json);
+    return ESP_OK;
 }
 
 /* ── Settings REST handlers ──────────────────────────────────────────────── */
@@ -586,13 +306,198 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* ── File API helpers ────────────────────────────────────────────────────── */
+
+static void url_decode(char *str)
+{
+    char *r = str, *w = str;
+    while (*r) {
+        if (*r == '%' && isxdigit((unsigned char)r[1]) && isxdigit((unsigned char)r[2])) {
+            char hex[3] = { r[1], r[2], '\0' };
+            *w++ = (char)strtol(hex, NULL, 16);
+            r += 3;
+        } else if (*r == '+') {
+            *w++ = ' ';
+            r++;
+        } else {
+            *w++ = *r++;
+        }
+    }
+    *w = '\0';
+}
+
+static bool sanitize_sdcard_path(const char *input, char *out, size_t out_size)
+{
+    /* Reject any path component equal to ".." */
+    const char *p = input;
+    while (*p) {
+        if (p[0] == '.' && p[1] == '.' && (p[2] == '/' || p[2] == '\0'))
+            return false;
+        while (*p && *p != '/') p++;
+        if (*p == '/') p++;
+    }
+
+    if (strncmp(input, SDCARD_MOUNT_POINT, strlen(SDCARD_MOUNT_POINT)) == 0) {
+        snprintf(out, out_size, "%s", input);
+    } else {
+        /* Strip leading slash from input before prepending mount point */
+        const char *rel = input;
+        while (*rel == '/') rel++;
+        if (*rel)
+            snprintf(out, out_size, "%s/%s", SDCARD_MOUNT_POINT, rel);
+        else
+            snprintf(out, out_size, "%s", SDCARD_MOUNT_POINT);
+    }
+    return true;
+}
+
+/* Append a JSON-escaped string to an sstr_t */
+static void sstr_append_json_str(sstr_t s, const char *str)
+{
+    sstr_append_cstr(s, "\"");
+    for (const char *c = str; *c; c++) {
+        if (*c == '"')       sstr_append_cstr(s, "\\\"");
+        else if (*c == '\\') sstr_append_cstr(s, "\\\\");
+        else if (*c == '\n') sstr_append_cstr(s, "\\n");
+        else if (*c == '\r') sstr_append_cstr(s, "\\r");
+        else if (*c == '\t') sstr_append_cstr(s, "\\t");
+        else                 sstr_append_of(s, c, 1);
+    }
+    sstr_append_cstr(s, "\"");
+}
+
+static esp_err_t files_list_handler(httpd_req_t *req)
+{
+    REQUIRE_AUTH(req);
+
+    char query[256] = {0};
+    char path_param[128] = {0};
+    httpd_req_get_url_query_str(req, query, sizeof(query));
+    httpd_query_key_value(query, "path", path_param, sizeof(path_param));
+    url_decode(path_param);
+
+    char full_path[256];
+    if (!sanitize_sdcard_path(path_param[0] ? path_param : "/", full_path, sizeof(full_path))) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid path");
+        return ESP_OK;
+    }
+
+    if (!sdcard_is_mounted()) {
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_set_status(req, "503 Service Unavailable");
+        httpd_resp_sendstr(req, "{\"error\":\"not_mounted\"}");
+        return ESP_OK;
+    }
+
+    DIR *dir = opendir(full_path);
+    if (!dir) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "not found");
+        return ESP_OK;
+    }
+
+    sstr_t json = sstr_new();
+    sstr_append_cstr(json, "[");
+    bool first = true;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        char entry_path[512];
+        snprintf(entry_path, sizeof(entry_path), "%s/%s", full_path, ent->d_name);
+        struct stat st = {0};
+        stat(entry_path, &st);
+
+        if (!first) sstr_append_cstr(json, ",");
+        first = false;
+        sstr_append_cstr(json, "{\"name\":");
+        sstr_append_json_str(json, ent->d_name);
+        char num[32];
+        snprintf(num, sizeof(num), ",\"size\":%ld", (long)st.st_size);
+        sstr_append_cstr(json, num);
+        sstr_append_cstr(json, ent->d_type == DT_DIR ? ",\"is_dir\":true}" : ",\"is_dir\":false}");
+    }
+    closedir(dir);
+    sstr_append_cstr(json, "]");
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, sstr_cstr(json), (ssize_t)sstr_length(json));
+    sstr_free(json);
+    return ESP_OK;
+}
+
+static esp_err_t files_download_handler(httpd_req_t *req)
+{
+    REQUIRE_AUTH(req);
+
+    char query[256] = {0};
+    char path_param[128] = {0};
+    httpd_req_get_url_query_str(req, query, sizeof(query));
+    httpd_query_key_value(query, "path", path_param, sizeof(path_param));
+    url_decode(path_param);
+
+    if (!path_param[0]) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "missing path");
+        return ESP_OK;
+    }
+
+    char full_path[256];
+    if (!sanitize_sdcard_path(path_param, full_path, sizeof(full_path))) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid path");
+        return ESP_OK;
+    }
+
+    if (!sdcard_is_mounted()) {
+        httpd_resp_set_status(req, "503 Service Unavailable");
+        httpd_resp_sendstr(req, "SD card not available");
+        return ESP_OK;
+    }
+
+    FILE *f = fopen(full_path, "r");
+    if (!f) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "not found");
+        return ESP_OK;
+    }
+
+    /* Content-Length (best-effort; allows client to show progress) */
+    char content_len_buf[24] = {0};
+    struct stat st;
+    if (stat(full_path, &st) == 0)
+        snprintf(content_len_buf, sizeof(content_len_buf), "%lld", (long long)st.st_size);
+    if (content_len_buf[0])
+        httpd_resp_set_hdr(req, "Content-Length", content_len_buf);
+
+    /* Extract basename for Content-Disposition */
+    const char *basename = strrchr(full_path, '/');
+    basename = basename ? basename + 1 : full_path;
+
+    size_t disp_len = strlen("attachment; filename=\"\"") + strlen(basename) + 1;
+    char *disp = malloc(disp_len);
+    if (!disp) { fclose(f); return ESP_ERR_NO_MEM; }
+    snprintf(disp, disp_len, "attachment; filename=\"%s\"", basename);
+    httpd_resp_set_hdr(req, "Content-Disposition", disp);
+    httpd_resp_set_type(req, "application/octet-stream");
+
+    char *buf = malloc(4096);
+    if (!buf) { free(disp); fclose(f); return ESP_ERR_NO_MEM; }
+
+    size_t n;
+    while ((n = fread(buf, 1, 4096, f)) > 0) {
+        if (httpd_resp_send_chunk(req, buf, (ssize_t)n) != ESP_OK) {
+            free(buf);
+            free(disp);
+            fclose(f);
+            return ESP_OK;
+        }
+    }
+    free(buf);
+    free(disp);
+    fclose(f);
+    httpd_resp_send_chunk(req, NULL, 0);
+    return ESP_OK;
+}
+
 /* ── Early init ──────────────────────────────────────────────────────────── */
 
 void webserver_early_init(void)
 {
-    s_ws_mutex = xSemaphoreCreateMutex();
-    for (int i = 0; i < MAX_WS_CLIENTS; i++)
-        s_ws_fds[i] = -1;
 }
 
 /* ── webserver_start ─────────────────────────────────────────────────────── */
@@ -603,8 +508,8 @@ void webserver_start(void)
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 10;
-    config.stack_size       = 6500;
+    config.max_uri_handlers = 12;
+    config.stack_size       = 8192;
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
     if (httpd_start(&s_server, &config) != ESP_OK) {
@@ -621,11 +526,10 @@ void webserver_start(void)
     static const httpd_uri_t uri_css = {
         .uri = "/app.css", .method = HTTP_GET, .handler = app_css_handler,
     };
-    static const httpd_uri_t uri_ws = {
-        .uri          = "/ws",
-        .method       = HTTP_GET,
-        .handler      = ws_handler,
-        .is_websocket = true,
+    static const httpd_uri_t uri_status_get = {
+        .uri     = "/api/status",
+        .method  = HTTP_GET,
+        .handler = status_get_handler,
     };
     static const httpd_uri_t uri_settings_get = {
         .uri     = "/api/settings",
@@ -652,16 +556,28 @@ void webserver_start(void)
         .method  = HTTP_GET,
         .handler = info_get_handler,
     };
+    static const httpd_uri_t uri_files_list = {
+        .uri     = "/api/files",
+        .method  = HTTP_GET,
+        .handler = files_list_handler,
+    };
+    static const httpd_uri_t uri_files_download = {
+        .uri     = "/api/files/download",
+        .method  = HTTP_GET,
+        .handler = files_download_handler,
+    };
 
     httpd_register_uri_handler(s_server, &uri_root);
     httpd_register_uri_handler(s_server, &uri_js);
     httpd_register_uri_handler(s_server, &uri_css);
-    httpd_register_uri_handler(s_server, &uri_ws);
+    httpd_register_uri_handler(s_server, &uri_status_get);
     httpd_register_uri_handler(s_server, &uri_settings_get);
     httpd_register_uri_handler(s_server, &uri_settings_post);
     httpd_register_uri_handler(s_server, &uri_restore_post);
     httpd_register_uri_handler(s_server, &uri_backup_get);
     httpd_register_uri_handler(s_server, &uri_info_get);
+    httpd_register_uri_handler(s_server, &uri_files_list);
+    httpd_register_uri_handler(s_server, &uri_files_download);
 
     ESP_LOGI(TAG, "HTTP server started");
 }

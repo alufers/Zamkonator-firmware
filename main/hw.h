@@ -29,3 +29,13 @@
 /* Signals are inverted by optocouplers: idle=LOW, pulse=rising edge (HIGH). */
 #define HW_WIEGAND_DAT0_GPIO  34
 #define HW_WIEGAND_DAT1_GPIO  35
+
+/* ── TCA9555 I2C GPIO expander ───────────────────────────────────────────── */
+#define HW_TCA_SDA_GPIO    12
+#define HW_TCA_SCL_GPIO    18
+#define HW_TCA_I2C_ADDR  0x20   /* A2=A1=A0=0 */
+#define HW_TCA_I2C_PORT  I2C_NUM_0
+
+/* Pin numbering: driver uses linear 0-15 (P0.x = x, P1.x = 8+x).
+ * Datasheet "P14" = Port 1 bit 4 = index 12. No P7 or P8 exist in scheme. */
+#define HW_TCA_SD_DETECT_PIN  12   /* P1.4; LOW = card present (active-low) */

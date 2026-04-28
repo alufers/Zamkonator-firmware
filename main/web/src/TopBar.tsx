@@ -1,6 +1,6 @@
-import { Clock, ClockArrowUp, LogOut, Plug, Server, Unplug } from "lucide-preact";
-import { Button } from "./Button";
-import { Chip } from "./Chip";
+import { Clock, ClockArrowUp, HardDrive, LogOut, Server } from "lucide-preact";
+import { Button } from "./ui/Button";
+import { Chip } from "./ui/Chip";
 import { StatusPayload, MqttStatus } from "./wsTypes";
 
 function formatUptime(seconds: number): string {
@@ -22,13 +22,11 @@ const MQTT_CHIP: Record<MqttStatus, { label: string; cls: string }> = {
 
 interface TopBarProps {
   status: StatusPayload | null;
-  connected: boolean;
-  connecting: boolean;
   mqttStatus: MqttStatus | null;
   onLogout?: () => void;
 }
 
-export function TopBar({ status, connected, connecting, mqttStatus, onLogout }: TopBarProps) {
+export function TopBar({ status, mqttStatus, onLogout }: TopBarProps) {
   const mqttChip = mqttStatus ? MQTT_CHIP[mqttStatus] : null;
   const uptimeStr = status ? formatUptime(status.uptime) : null;
   const timeStr =
@@ -59,21 +57,19 @@ export function TopBar({ status, connected, connecting, mqttStatus, onLogout }: 
         </Chip>
       )}
 
-      <Chip
-        class={
-          connected
-            ? "text-green-400 border-green-900"
-            : connecting
-              ? "text-amber-400 border-amber-900"
+      {status && (
+        <Chip
+          class={
+            status.sd_card_mounted
+              ? "text-green-400 border-green-900"
               : "text-red-400 border-red-900"
-        }
-        title={
-          connected ? "WebSocket connected" : connecting ? "Connecting…" : "WebSocket disconnected"
-        }
-      >
-        {connected ? <Plug size={13} class="shrink-0" /> : <Unplug size={13} class="shrink-0" />}
-        {connected ? "Connected" : connecting ? "Connecting…" : "Disconnected"}
-      </Chip>
+          }
+          title={status.sd_card_mounted ? "SD card mounted" : "SD card not mounted"}
+        >
+          <HardDrive size={13} class="shrink-0" />
+          {status.sd_card_mounted ? "SD" : "No SD"}
+        </Chip>
+      )}
 
       {onLogout && (
         <>

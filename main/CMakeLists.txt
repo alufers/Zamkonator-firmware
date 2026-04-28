@@ -15,7 +15,7 @@ set(SCHEMA_GEN_SRCS
 
 idf_component_register(
     SRCS
-        "uni-gtw.c"
+        "zamkonator.c"
         "webserver.c"
         "ethernet_manager.c"
         "config.c"
@@ -23,6 +23,7 @@ idf_component_register(
         "mqtt.c"
         "utils.c"
         "sdcard.c"
+        "tca_io.c"
         "wiegand.c"
     INCLUDE_DIRS "."
     REQUIRES
@@ -34,6 +35,7 @@ idf_component_register(
         esp_driver_gpio
         esp_driver_spi
         esp_driver_sdspi
+        esp_driver_i2c
         esp_hw_support
         esp_timer
         littlefs

@@ -1,10 +1,11 @@
-import { useContext, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useState } from "preact/hooks";
 import { AuthContext } from "./AuthContext";
 import { AuthGuard } from "./AuthGuard";
+import { Files } from "./Files";
 import { Settings } from "./Settings";
 import { TopBar } from "./TopBar";
-import { useJsonWebsocket, ReadyState } from "./useWebsocket";
-import { WsMessage, StatusPayload, MqttStatus } from "./wsTypes";
+import { Tabs } from "./ui/Tabs";
+import { StatusPayload, MqttStatus } from "./wsTypes";
 
 export function App() {
   return (
@@ -17,56 +18,45 @@ export function App() {
 function AppInner() {
   const { password, onLogout } = useContext(AuthContext);
   const [status, setStatus] = useState<StatusPayload | null>(null);
-  const lastStatusTimeRef = useRef<number>(0);
 
-  const wsUrl = password
-    ? `ws://${location.host}/ws?auth=${encodeURIComponent(password)}`
-    : `ws://${location.host}/ws`;
-  const { lastJsonMessage, readyState, forceReconnect } =
-    useJsonWebsocket<WsMessage>(wsUrl);
-
-  useEffect(() => {
-    if (!lastJsonMessage) return;
-    if (lastJsonMessage.cmd === "status") {
-      lastStatusTimeRef.current = Date.now();
-      setStatus(lastJsonMessage.payload);
-    }
-  }, [lastJsonMessage]);
+  const fetchStatus = useCallback(() => {
+    const headers: Record<string, string> = password ? { "X-Auth": password } : {};
+    fetch("/api/status", { headers })
+      .then((r) => (r.ok ? (r.json() as Promise<StatusPayload>) : null))
+      .then((data) => { if (data) setStatus(data); })
+      .catch(() => {});
+  }, [password]);
 
   useEffect(() => {
-    if (readyState === ReadyState.OPEN) {
-      setStatus(null);
-      lastStatusTimeRef.current = 0;
-    } else if (readyState === ReadyState.CLOSED) {
-      setStatus(null);
-    }
-  }, [readyState]);
-
-  useEffect(() => {
-    if (readyState !== ReadyState.OPEN) return;
-    const interval = setInterval(() => {
-      if (lastStatusTimeRef.current > 0 && Date.now() - lastStatusTimeRef.current > 20_000) {
-        forceReconnect();
-      }
-    }, 5000);
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 10_000);
     return () => clearInterval(interval);
-  }, [readyState, forceReconnect]);
+  }, [fetchStatus]);
 
   const mqttStatus: MqttStatus | null = status?.mqtt_status ?? null;
-  const connected = readyState === ReadyState.OPEN;
-  const connecting = readyState === ReadyState.CONNECTING;
+
+  const [activeTab, setActiveTab] = useState<"settings" | "files">("settings");
+  const TABS = [
+    { id: "settings", label: "Settings" },
+    { id: "files", label: "Files" },
+  ];
 
   return (
     <div class="flex flex-col h-full bg-zinc-950 text-zinc-100 font-mono">
       <TopBar
         status={status}
-        connected={connected}
-        connecting={connecting}
         mqttStatus={mqttStatus}
         onLogout={password !== null ? onLogout : undefined}
       />
-      <div class="flex-1 overflow-hidden">
-        <Settings />
+      <div class="flex flex-col flex-1 overflow-hidden">
+        <Tabs
+          tabs={TABS}
+          active={activeTab}
+          onChange={(id) => setActiveTab(id as typeof activeTab)}
+        />
+        <div class="flex-1 overflow-hidden">
+          {activeTab === "settings" ? <Settings /> : <Files status={status} />}
+        </div>
       </div>
     </div>
   );

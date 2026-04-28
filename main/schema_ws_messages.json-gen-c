@@ -7,6 +7,7 @@ struct ws_status_payload_t {
     int64_t uptime;        // seconds since boot
     int64_t time;          // Unix timestamp
     mqtt_status_t mqtt_status;
+    bool sd_card_mounted;  // true when FAT volume is mounted
 }
 
 struct ws_console_msg_t {
