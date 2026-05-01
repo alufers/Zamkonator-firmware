@@ -1,5 +1,6 @@
 #include "webserver.h"
 #include "auth_proxy.h"
+#include "ota.h"
 #include "background_worker.h"
 #include "config.h"
 #include "digital_inputs.h"
@@ -577,7 +578,7 @@ void webserver_start(void)
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 13;
+    config.max_uri_handlers = 15;
     config.stack_size       = 8192;
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
@@ -653,6 +654,8 @@ void webserver_start(void)
     httpd_register_uri_handler(s_server, &uri_files_list);
     httpd_register_uri_handler(s_server, &uri_files_download);
     httpd_register_uri_handler(s_server, &uri_open_post);
+
+    ota_register_handlers(s_server);
 
     ESP_LOGI(TAG, "HTTP server started");
 }

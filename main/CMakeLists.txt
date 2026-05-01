@@ -28,8 +28,10 @@ idf_component_register(
         "outputs.c"
         "auth_proxy.c"
         "digital_inputs.c"
+        "ota.c"
     INCLUDE_DIRS "."
     REQUIRES
+        app_update
         esp_eth
         esp_http_server
         esp_http_client

@@ -9,6 +9,7 @@
 #include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
+#include "ota.h"
 #include "digital_inputs.h"
 #include "esp_littlefs.h"
 #include "ethernet_manager.h"
@@ -33,6 +34,8 @@ void app_main(void)
 
     /* Event loop must exist before outputs_init() registers IP event handlers. */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    ota_init();
 
     /* Bring TCA and outputs up immediately — before any filesystem or network
      * work that could take seconds — so LEDs settle to the correct base state

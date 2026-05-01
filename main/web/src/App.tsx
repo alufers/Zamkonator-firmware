@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useState } from "preact/hooks";
 import { AuthContext } from "./AuthContext";
 import { AuthGuard } from "./AuthGuard";
 import { Files } from "./Files";
+import { OTA } from "./OTA";
 import { Settings } from "./Settings";
 import { TopBar } from "./TopBar";
 import { Tabs } from "./ui/Tabs";
@@ -35,10 +36,11 @@ function AppInner() {
 
   const mqttStatus: MqttStatus | null = status?.mqtt_status ?? null;
 
-  const [activeTab, setActiveTab] = useState<"settings" | "files">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "files" | "ota">("settings");
   const TABS = [
     { id: "settings", label: "Settings" },
-    { id: "files", label: "Files" },
+    { id: "files",    label: "Files" },
+    { id: "ota",      label: "OTA" },
   ];
 
   return (
@@ -55,7 +57,7 @@ function AppInner() {
           onChange={(id) => setActiveTab(id as typeof activeTab)}
         />
         <div class="flex-1 overflow-hidden">
-          {activeTab === "settings" ? <Settings /> : <Files status={status} />}
+          {activeTab === "settings" ? <Settings /> : activeTab === "files" ? <Files status={status} /> : <OTA />}
         </div>
       </div>
     </div>
