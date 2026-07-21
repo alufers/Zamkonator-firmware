@@ -29,9 +29,12 @@ idf_component_register(
         "auth_proxy.c"
         "digital_inputs.c"
         "ota.c"
+        "coredump_saver.c"
     INCLUDE_DIRS "."
     REQUIRES
         app_update
+        espcoredump
+        spi_flash
         esp_eth
         esp_http_server
         esp_http_client

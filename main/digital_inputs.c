@@ -18,8 +18,23 @@ static const char *TAG = "digital_inputs";
 #define POLL_MS 10
 
 /* Hardware pin assignments for each logical input slot. */
-static const uint8_t k_hw_pins[] = { HW_TCA_INP1_PIN };
+static const uint8_t k_hw_pins[] = {
+    HW_TCA_INP1_PIN,
+    HW_TCA_INP2_PIN,
+    HW_TCA_INP3_PIN,
+};
 #define INPUT_COUNT (sizeof(k_hw_pins) / sizeof(k_hw_pins[0]))
+
+/* Config block backing each slot. Caller must hold the config lock. */
+static struct digital_input_config_t *input_cfg(int idx)
+{
+    switch (idx) {
+    case 0:  return &g_config.input_inp1;
+    case 1:  return &g_config.input_inp2;
+    case 2:  return &g_config.input_inp3;
+    default: return NULL;
+    }
+}
 
 typedef struct {
     bool raw_level;
@@ -41,17 +56,8 @@ static bool s_door_lock_locked;
 
 /* ── Action dispatch ────────────────────────────────────────────────────── */
 
-static void handle_input_change(int idx, bool logical_level)
+static void handle_input_change(int idx, int mode, bool logical_level)
 {
-    /* Snapshot config under lock */
-    int mode;
-    config_lock();
-    if (idx == 0)
-        mode = g_config.input_inp1.mode;
-    else
-        mode = digital_input_mode_t_none;
-    config_unlock();
-
     switch (mode) {
     case digital_input_mode_t_push_to_exit:
         if (!logical_level) break;
@@ -67,20 +73,14 @@ static void handle_input_change(int idx, bool logical_level)
         }
         break;
 
+    /* Sensor modes only need logging here: the poll loop republishes their
+     * state to the status endpoint every cycle. */
     case digital_input_mode_t_door_close_sensor:
         ESP_LOGI(TAG, "INP%d: door %s", idx + 1, logical_level ? "CLOSED" : "OPEN");
-        xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-        s_door_close_configured = true;
-        s_door_close_closed     = logical_level;
-        xSemaphoreGive(s_state_mutex);
         break;
 
     case digital_input_mode_t_door_lock_sensor:
         ESP_LOGI(TAG, "INP%d: lock %s", idx + 1, logical_level ? "LOCKED" : "UNLOCKED");
-        xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-        s_door_lock_configured = true;
-        s_door_lock_locked     = logical_level;
-        xSemaphoreGive(s_state_mutex);
         break;
 
     default:
@@ -101,78 +101,62 @@ static void digital_inputs_task(void *arg)
 
         int64_t now_us = esp_timer_get_time();
 
+        /* Sensor state is recomputed from scratch each cycle, so a slot that is
+         * not a sensor simply contributes nothing — it can no longer clobber
+         * the state another slot is publishing. */
+        bool door_close_seen = false, door_close_closed = false;
+        bool door_lock_seen  = false, door_lock_locked  = false;
+
         for (int i = 0; i < (int)INPUT_COUNT; i++) {
             /* Snapshot per-input config */
-            bool inverted;
-            int  debounce_ms;
-            int mode;
             config_lock();
-            if (i == 0) {
-                mode        = g_config.input_inp1.mode;
-                inverted    = g_config.input_inp1.inverted;
-                debounce_ms = g_config.input_inp1.debounce_ms;
-            } else {
-                mode        = digital_input_mode_t_none;
-                inverted    = false;
-                debounce_ms = 300;
-            }
+            const struct digital_input_config_t *cfg = input_cfg(i);
+            int  mode        = cfg->mode;
+            bool inverted    = cfg->inverted;
+            int  debounce_ms = cfg->debounce_ms;
             config_unlock();
-
-            /* Clear cached sensor state when mode changes away from sensor modes */
-            if (mode != digital_input_mode_t_door_close_sensor) {
-                xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-                if (s_door_close_configured)
-                    s_door_close_configured = false;
-                xSemaphoreGive(s_state_mutex);
-            }
-            if (mode != digital_input_mode_t_door_lock_sensor) {
-                xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-                if (s_door_lock_configured)
-                    s_door_lock_configured = false;
-                xSemaphoreGive(s_state_mutex);
-            }
 
             bool raw = (port_val >> k_hw_pins[i]) & 1;
             input_rt_t *rt = &s_rt[i];
 
             if (!rt->initialized) {
                 /* First cycle: silently latch current state as baseline */
-                rt->raw_level       = raw;
-                rt->pending_level   = raw;
-                rt->confirmed_level = raw;
-                rt->pending_since_us = now_us;
-                rt->initialized     = true;
-
-                /* Initialise sensor state for status endpoint */
-                bool logical = inverted ? !raw : raw;
-                if (mode == digital_input_mode_t_door_close_sensor) {
-                    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-                    s_door_close_configured = true;
-                    s_door_close_closed     = logical;
-                    xSemaphoreGive(s_state_mutex);
-                } else if (mode == digital_input_mode_t_door_lock_sensor) {
-                    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
-                    s_door_lock_configured = true;
-                    s_door_lock_locked     = logical;
-                    xSemaphoreGive(s_state_mutex);
-                }
-                continue;
-            }
-
-            /* Debounce: reset timer whenever raw level changes */
-            if (raw != rt->pending_level) {
+                rt->raw_level        = raw;
                 rt->pending_level    = raw;
+                rt->confirmed_level  = raw;
                 rt->pending_since_us = now_us;
+                rt->initialized      = true;
+            } else {
+                /* Debounce: reset timer whenever raw level changes */
+                if (raw != rt->pending_level) {
+                    rt->pending_level    = raw;
+                    rt->pending_since_us = now_us;
+                }
+
+                /* Confirm when stable long enough */
+                if (raw != rt->confirmed_level &&
+                    (now_us - rt->pending_since_us) >= (int64_t)debounce_ms * 1000) {
+                    rt->confirmed_level = raw;
+                    handle_input_change(i, mode, inverted ? !raw : raw);
+                }
             }
 
-            /* Confirm when stable long enough */
-            if (raw != rt->confirmed_level &&
-                (now_us - rt->pending_since_us) >= (int64_t)debounce_ms * 1000) {
-                rt->confirmed_level = raw;
-                bool logical = inverted ? !raw : raw;
-                handle_input_change(i, logical);
+            bool logical = inverted ? !rt->confirmed_level : rt->confirmed_level;
+            if (mode == digital_input_mode_t_door_close_sensor) {
+                door_close_seen   = true;
+                door_close_closed = logical;
+            } else if (mode == digital_input_mode_t_door_lock_sensor) {
+                door_lock_seen   = true;
+                door_lock_locked = logical;
             }
         }
+
+        xSemaphoreTake(s_state_mutex, portMAX_DELAY);
+        s_door_close_configured = door_close_seen;
+        s_door_close_closed     = door_close_closed;
+        s_door_lock_configured  = door_lock_seen;
+        s_door_lock_locked      = door_lock_locked;
+        xSemaphoreGive(s_state_mutex);
     }
 }
 

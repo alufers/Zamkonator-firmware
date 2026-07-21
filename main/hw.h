@@ -37,15 +37,19 @@
 #define HW_TCA_I2C_PORT  I2C_NUM_0
 
 /* Pin numbering: driver uses linear 0-15 (P0.x = x, P1.x = 8+x).
- * Datasheet "P14" = Port 1 bit 4 = index 12. No P7 or P8 exist in scheme. */
+ * Schematic "P14" = Port 1 bit 4 = index 12. */
 #define HW_TCA_SD_DETECT_PIN     12   /* P1.4; LOW = card present (active-low) */
 
-/* Input pins */
-#define HW_TCA_INP1_PIN          7    /* P0.7 = INP1 (digital input 1) */
+/* Input pins.
+ * The AUX_INPn_INV nets are inverted by their optocouplers; the per-input
+ * `inverted` config flag compensates for that in software. */
+#define HW_TCA_INP1_PIN          5    /* P0.5 = AUX_INP1_INV */
+#define HW_TCA_INP2_PIN          6    /* P0.6 = AUX_INP2_INV */
+#define HW_TCA_INP3_PIN          7    /* P0.7 = AUX_INP3_INV */
 
 /* Output pins */
-#define HW_TCA_STATUS_RED_PIN    3    /* P0.3 = STATUS_LED_RED  */
-#define HW_TCA_STATUS_GREEN_PIN  4    /* P0.4 = STATUS_LED_GREEN */
-#define HW_TCA_RELAY_PIN         8    /* P1.0 = RELAY_CTL       */
-#define HW_TCA_BEEPER_PIN        13   /* P1.5 = BUZ_CTL         */
-#define HW_TCA_READER_LED_PIN    14   /* P1.6 = LED_CTL         */
+#define HW_TCA_STATUS_RED_PIN    3    /* P0.3 = STATUS_LED_RED   */
+#define HW_TCA_RELAY_PIN         4    /* P0.4 = RELAY_CTL        */
+#define HW_TCA_STATUS_GREEN_PIN  8    /* P1.0 = STATUS_LED_GREEN */
+#define HW_TCA_BEEPER_PIN        13   /* P1.5 = BUZ_CTL          */
+#define HW_TCA_READER_LED_PIN    14   /* P1.6 = LED_CTL          */

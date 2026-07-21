@@ -149,6 +149,8 @@ static void apply_settings_from_buf(const char *buf, int len)
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_auth_proxy_healthcheck_interval_ms);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_relay_open_ms);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_input_inp1);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_input_inp2);
+    JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_input_inp3);
     JSON_GEN_C_FIELD_MASK_SET(mask, gateway_config_t_FIELD_remote_open_password);
 
     config_lock();

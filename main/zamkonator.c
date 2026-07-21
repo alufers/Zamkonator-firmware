@@ -9,6 +9,7 @@
 #include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
+#include "coredump_saver.h"
 #include "ota.h"
 #include "digital_inputs.h"
 #include "esp_littlefs.h"
@@ -35,6 +36,7 @@ void app_main(void)
     /* Event loop must exist before outputs_init() registers IP event handlers. */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
+    coredump_saver_init();
     ota_init();
 
     /* Bring TCA and outputs up immediately — before any filesystem or network

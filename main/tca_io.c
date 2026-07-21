@@ -9,6 +9,15 @@
 
 static const char *TAG = "tca_io";
 
+/* Direction mask: 0 = output, 1 = input. Every bit not driven by us stays an
+ * input (including AUX_INP1..3 and SD_DETECT). */
+#define TCA_OUTPUT_MASK ((1u << HW_TCA_STATUS_RED_PIN)   | \
+                         (1u << HW_TCA_RELAY_PIN)        | \
+                         (1u << HW_TCA_STATUS_GREEN_PIN) | \
+                         (1u << HW_TCA_BEEPER_PIN)       | \
+                         (1u << HW_TCA_READER_LED_PIN))
+#define TCA_DIR_MASK    ((uint16_t)~TCA_OUTPUT_MASK)
+
 static i2c_dev_t s_tca_dev;
 static bool      s_initialized = false;
 
@@ -31,17 +40,14 @@ esp_err_t tca_io_init(void)
 
     /* Drive all output-capable bits LOW before switching their direction from
      * input to output. The TCA9555 output register resets to all-HIGH, so
-     * without this the relay (pin 8) would briefly activate on every boot. */
+     * without this the relay (P0.4) would briefly activate on every boot. */
     ret = tca95x5_port_write(&s_tca_dev, 0x0000);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "port_write(0) failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
-    /* Configure direction: 0=output, 1=input.
-     * Outputs: STATUS_RED(3), STATUS_GREEN(4), RELAY(8), BEEPER(13), READER_LED(14).
-     * All other pins (including INP1 bit7, SD_DETECT bit12) remain inputs. */
-    ret = tca95x5_port_set_mode(&s_tca_dev, 0x9EE7);
+    ret = tca95x5_port_set_mode(&s_tca_dev, TCA_DIR_MASK);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "port_set_mode failed: %s", esp_err_to_name(ret));
         return ret;

@@ -60,5 +60,7 @@ struct gateway_config_t {
     int    auth_proxy_healthcheck_interval_ms;
     int    relay_open_ms;
     digital_input_config_t input_inp1;
+    digital_input_config_t input_inp2;
+    digital_input_config_t input_inp3;
     sstr_t remote_open_password;
 }

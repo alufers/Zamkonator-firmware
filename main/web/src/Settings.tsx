@@ -31,6 +31,84 @@ export interface SettingsData {
   web_password: string;
   remote_open_password: string;
   input_inp1: DigitalInputConfig;
+  input_inp2: DigitalInputConfig;
+  input_inp3: DigitalInputConfig;
+}
+
+type DigitalInputKey = "input_inp1" | "input_inp2" | "input_inp3";
+
+const DIGITAL_INPUTS: { key: DigitalInputKey; label: string; pin: string }[] = [
+  { key: "input_inp1", label: "INP1", pin: "P0.5" },
+  { key: "input_inp2", label: "INP2", pin: "P0.6" },
+  { key: "input_inp3", label: "INP3", pin: "P0.7" },
+];
+
+function DigitalInput({
+  label,
+  pin,
+  value,
+  onChange,
+}: {
+  label: string;
+  pin: string;
+  value: DigitalInputConfig;
+  onChange: (next: DigitalInputConfig) => void;
+}) {
+  return (
+    <div class="mb-4 last:mb-0">
+      <p class="text-zinc-500 text-xs mb-3">
+        {label} ({pin})
+      </p>
+
+      <div class="flex gap-4 flex-wrap mb-3">
+        <div>
+          <label class="block mb-1 text-xs text-zinc-400">Mode</label>
+          <select
+            value={value.mode}
+            onChange={(e) =>
+              onChange({ ...value, mode: (e.target as HTMLSelectElement).value as DigitalInputMode })
+            }
+            class="bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+          >
+            <option value="none">None</option>
+            <option value="push_to_exit">Push to Exit</option>
+            <option value="door_close_sensor">Door Close Sensor</option>
+            <option value="door_lock_sensor">Door Lock Sensor</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block mb-1 text-xs text-zinc-400">Debounce</label>
+          <div class="flex items-center gap-1">
+            <input
+              type="number"
+              value={value.debounce_ms}
+              min={0}
+              max={5000}
+              onInput={(e) =>
+                onChange({
+                  ...value,
+                  debounce_ms: Math.min(5000, Math.max(0, parseInt((e.target as HTMLInputElement).value) || 300)),
+                })
+              }
+              class="w-24 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+            />
+            <span class="text-zinc-500 text-xs">ms</span>
+          </div>
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={value.inverted}
+          onChange={(e) => onChange({ ...value, inverted: (e.target as HTMLInputElement).checked })}
+          class="w-4 h-4 accent-blue-500"
+        />
+        <span class="text-xs text-zinc-300">Inverted (active-low signal)</span>
+      </label>
+    </div>
+  );
 }
 
 type SaveStatus = "idle" | "loading" | "saving" | "saved" | "rebooting" | "error";
@@ -270,72 +348,15 @@ export function Settings() {
               Digital Inputs
             </h3>
 
-            <p class="text-zinc-500 text-xs mb-3">INP1 (P0.7)</p>
-
-            <div class="flex gap-4 flex-wrap mb-3">
-              <div>
-                <label class="block mb-1 text-xs text-zinc-400">Mode</label>
-                <select
-                  value={draft.input_inp1.mode}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      input_inp1: {
-                        ...draft.input_inp1,
-                        mode: (e.target as HTMLSelectElement).value as DigitalInputMode,
-                      },
-                    })
-                  }
-                  class="bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
-                >
-                  <option value="none">None</option>
-                  <option value="push_to_exit">Push to Exit</option>
-                  <option value="door_close_sensor">Door Close Sensor</option>
-                  <option value="door_lock_sensor">Door Lock Sensor</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="block mb-1 text-xs text-zinc-400">Debounce</label>
-                <div class="flex items-center gap-1">
-                  <input
-                    type="number"
-                    value={draft.input_inp1.debounce_ms}
-                    min={0}
-                    max={5000}
-                    onInput={(e) =>
-                      setDraft({
-                        ...draft,
-                        input_inp1: {
-                          ...draft.input_inp1,
-                          debounce_ms: Math.min(5000, Math.max(0, parseInt((e.target as HTMLInputElement).value) || 300)),
-                        },
-                      })
-                    }
-                    class="w-24 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
-                  />
-                  <span class="text-zinc-500 text-xs">ms</span>
-                </div>
-              </div>
-            </div>
-
-            <label class="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={draft.input_inp1.inverted}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    input_inp1: {
-                      ...draft.input_inp1,
-                      inverted: (e.target as HTMLInputElement).checked,
-                    },
-                  })
-                }
-                class="w-4 h-4 accent-blue-500"
+            {DIGITAL_INPUTS.map(({ key, label, pin }) => (
+              <DigitalInput
+                key={key}
+                label={label}
+                pin={pin}
+                value={draft[key]}
+                onChange={(next) => setDraft({ ...draft, [key]: next })}
               />
-              <span class="text-xs text-zinc-300">Inverted (active-low signal)</span>
-            </label>
+            ))}
           </section>
 
           {/* ── MQTT ─────────────────────────────────────────────────── */}
