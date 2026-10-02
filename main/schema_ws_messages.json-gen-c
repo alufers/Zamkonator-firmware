@@ -21,8 +21,13 @@ struct ws_status_msg_t {
     ws_status_payload_t payload;
 }
 
+struct ws_event_msg_t {
+    event_t payload;
+}
+
 oneof ws_server_message_t {
     @tag "cmd"
     ws_console_msg_t console;
     ws_status_msg_t status;
+    ws_event_msg_t event;
 }

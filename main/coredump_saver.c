@@ -1,4 +1,5 @@
 #include "coredump_saver.h"
+#include "event_manager.h"
 #include "sdcard.h"
 #include "utils.h"
 
@@ -97,6 +98,7 @@ static void do_save_coredump(void)
     }
 
     ESP_LOGI(TAG, "Coredump saved to %s", path);
+    event_emit_coredump_saved(path, (long)size);
     esp_core_dump_image_erase();
 }
 

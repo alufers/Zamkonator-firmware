@@ -6,7 +6,8 @@ enum digital_input_mode_t {
     none,
     push_to_exit,
     door_close_sensor,
-    door_lock_sensor
+    door_lock_sensor,
+    generic
 }
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
@@ -58,6 +59,8 @@ struct gateway_config_t {
     sstr_t auth_proxy_base_url;
     int    auth_proxy_timeout_ms;
     int    auth_proxy_healthcheck_interval_ms;
+    bool   auth_proxy_cache_enabled;
+    int    auth_proxy_cache_refresh_ms;
     int    relay_open_ms;
     digital_input_config_t input_inp1;
     digital_input_config_t input_inp2;

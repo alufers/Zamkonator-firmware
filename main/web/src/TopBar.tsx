@@ -1,4 +1,4 @@
-import { Clock, ClockArrowUp, DoorClosed, DoorOpen, HardDrive, Lock, LockOpen, LogOut, Server, ShieldCheck, ShieldAlert } from "lucide-preact";
+import { Clock, ClockArrowUp, DoorClosed, DoorOpen, HardDrive, Lock, LockOpen, LogOut, Server, ShieldCheck, ShieldAlert, Wifi, WifiOff } from "lucide-preact";
 import { Button } from "./ui/Button";
 import { Chip } from "./ui/Chip";
 import { StatusPayload, MqttStatus } from "./wsTypes";
@@ -23,10 +23,11 @@ const MQTT_CHIP: Record<MqttStatus, { label: string; cls: string }> = {
 interface TopBarProps {
   status: StatusPayload | null;
   mqttStatus: MqttStatus | null;
+  wsConnected: boolean;
   onLogout?: () => void;
 }
 
-export function TopBar({ status, mqttStatus, onLogout }: TopBarProps) {
+export function TopBar({ status, mqttStatus, wsConnected, onLogout }: TopBarProps) {
   const mqttChip = mqttStatus ? MQTT_CHIP[mqttStatus] : null;
   const uptimeStr = status ? formatUptime(status.uptime) : null;
   const timeStr =
@@ -35,6 +36,18 @@ export function TopBar({ status, mqttStatus, onLogout }: TopBarProps) {
   return (
     <div class="flex items-center px-3 py-2.5 border-b border-zinc-800 shrink-0 gap-2">
       <span class="flex-1 font-bold tracking-wide text-sm">Zamkonator</span>
+
+      <Chip
+        class={
+          wsConnected ? "text-green-400 border-green-900" : "text-red-400 border-red-900"
+        }
+        title={wsConnected ? "Live updates connected" : "Reconnecting…"}
+      >
+        {wsConnected
+          ? <Wifi size={13} class="shrink-0" />
+          : <WifiOff size={13} class="shrink-0" />}
+        {wsConnected ? "Live" : "Offline"}
+      </Chip>
 
       {timeStr && (
         <Chip title="Local time">

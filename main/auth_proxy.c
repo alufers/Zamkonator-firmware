@@ -1,6 +1,8 @@
 #include "auth_proxy.h"
+#include "auth.h"
 #include "config.h"
 #include "outputs.h"
+#include "webserver.h"
 
 #include <string.h>
 
@@ -80,8 +82,13 @@ static void auth_proxy_monitor_task(void *arg)
 
         bool prev = s_healthy;
         s_healthy = ok;
-        if (prev != ok)
+        if (prev != ok) {
             outputs_update_base_state();
+            webserver_push_status();
+            /* Coming back online is the best moment to refresh the offline
+             * cache — the proxy is known reachable right now. */
+            if (ok) auth_cache_trigger_download();
+        }
 
         if (ok) {
             ESP_LOGI(TAG, "Auth proxy healthy");

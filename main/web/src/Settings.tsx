@@ -3,7 +3,12 @@ import { AuthContext } from "./AuthContext";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
-type DigitalInputMode = "none" | "push_to_exit" | "door_close_sensor" | "door_lock_sensor";
+type DigitalInputMode =
+  | "none"
+  | "push_to_exit"
+  | "door_close_sensor"
+  | "door_lock_sensor"
+  | "generic";
 
 interface DigitalInputConfig {
   mode: DigitalInputMode;
@@ -25,6 +30,8 @@ export interface SettingsData {
   auth_proxy_base_url: string;
   auth_proxy_timeout_ms: number;
   auth_proxy_healthcheck_interval_ms: number;
+  auth_proxy_cache_enabled: boolean;
+  auth_proxy_cache_refresh_ms: number;
   relay_open_ms: number;
   mqtt: MqttConfig;
   web_password_enabled: boolean;
@@ -74,6 +81,7 @@ function DigitalInput({
             <option value="push_to_exit">Push to Exit</option>
             <option value="door_close_sensor">Door Close Sensor</option>
             <option value="door_lock_sensor">Door Lock Sensor</option>
+            <option value="generic">Generic (report only)</option>
           </select>
         </div>
 
@@ -338,6 +346,51 @@ export function Settings() {
                   />
                   <span class="text-zinc-500 text-xs">ms</span>
                 </div>
+              </div>
+            </div>
+
+            {/* ── Offline cache ──────────────────────────────────────── */}
+            <label class="flex items-center gap-2 mt-4 mb-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draft.auth_proxy_cache_enabled}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    auth_proxy_cache_enabled: (e.target as HTMLInputElement).checked,
+                  })
+                }
+                class="w-4 h-4 accent-blue-500"
+              />
+              <span class="text-xs text-zinc-300">Use cached user database when proxy is down</span>
+            </label>
+            <p class="text-zinc-600 text-xs mb-3">
+              Downloads the user list to{" "}
+              <span class="text-zinc-400 font-mono">/zamkonator_users.dat</span> on the SD card
+              and falls back to it when the proxy is unreachable. Cards that the proxy actively
+              denies are never re-checked against the cache.
+            </p>
+
+            <div class={draft.auth_proxy_cache_enabled ? "" : "opacity-40 pointer-events-none"}>
+              <label class="block mb-1 text-xs text-zinc-400">Cache refresh interval</label>
+              <div class="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={draft.auth_proxy_cache_refresh_ms}
+                  min={60000}
+                  max={86400000}
+                  onInput={(e) =>
+                    setDraft({
+                      ...draft,
+                      auth_proxy_cache_refresh_ms: Math.min(
+                        86400000,
+                        Math.max(60000, parseInt((e.target as HTMLInputElement).value) || 600000),
+                      ),
+                    })
+                  }
+                  class="w-32 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
+                />
+                <span class="text-zinc-500 text-xs">ms</span>
               </div>
             </div>
           </section>

@@ -1,0 +1,76 @@
+// zamkonator — event schema
+// Depends on types from schema_config.json-gen-c (included first by schema.json-gen-c)
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum card_scan_result_t {
+    granted,
+    denied_not_found,
+    denied_expired,
+    error_comm,
+    unconfigured,
+    unknown_format
+}
+
+enum auth_strategy_name_t {
+    auth_proxy_online,
+    auth_proxy_cached
+}
+
+// ── Event payloads ────────────────────────────────────────────────────────────
+
+struct ev_booted_t {
+    sstr_t firmware_version;
+    sstr_t reset_reason;
+}
+
+struct ev_coredump_saved_t {
+    sstr_t  path;
+    int64_t size;
+}
+
+struct ev_card_scanned_t {
+    sstr_t card_id;                            // 8 lowercase hex chars
+    int    bit_count;
+    card_scan_result_t result;
+    nullable sstr_t username;
+    nullable auth_strategy_name_t strategy;
+    nullable int64_t membership_expiration;
+}
+
+struct ev_door_state_changed_t {
+    bool closed;
+}
+
+struct ev_lock_state_changed_t {
+    bool locked;
+}
+
+struct ev_push_to_exit_t {
+    int input;                                 // 1-based input slot
+}
+
+struct ev_remote_open_t {
+    nullable sstr_t reason;
+    int open_time_ms;
+}
+
+oneof event_payload_t {
+    @tag "type"
+    ev_booted_t             booted;
+    ev_coredump_saved_t     coredump_saved;
+    ev_card_scanned_t       card_scanned;
+    ev_door_state_changed_t door_state_changed;
+    ev_lock_state_changed_t lock_state_changed;
+    ev_push_to_exit_t       push_to_exit;
+    ev_remote_open_t        remote_open;
+}
+
+// ── Envelope ──────────────────────────────────────────────────────────────────
+
+struct event_t {
+    int64_t seq;
+    int64_t uptime;          // seconds since boot
+    nullable int64_t time;   // Unix timestamp; null before NTP sync
+    event_payload_t payload;
+}

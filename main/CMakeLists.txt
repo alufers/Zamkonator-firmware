@@ -27,9 +27,11 @@ idf_component_register(
         "wiegand.c"
         "outputs.c"
         "auth_proxy.c"
+        "auth.c"
         "digital_inputs.c"
         "ota.c"
         "coredump_saver.c"
+        "event_manager.c"
     INCLUDE_DIRS "."
     REQUIRES
         app_update
@@ -114,6 +116,7 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
   set(SCHEMA_INPUT_FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/schema.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_config.json-gen-c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/schema_events.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_ws_messages.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_mqtt_messages.json-gen-c"
         "${CMAKE_CURRENT_SOURCE_DIR}/schema_auth_proxy.json-gen-c"

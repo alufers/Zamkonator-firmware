@@ -105,6 +105,8 @@ void config_init(void)
     g_config.auth_proxy_base_url                   = sstr("");
     g_config.auth_proxy_timeout_ms                 = 10000;
     g_config.auth_proxy_healthcheck_interval_ms    = 30000;
+    g_config.auth_proxy_cache_enabled              = 1;
+    g_config.auth_proxy_cache_refresh_ms           = 600000;
     g_config.relay_open_ms                         = 8000;
 
     g_config.input_inp1.mode        = digital_input_mode_t_none;

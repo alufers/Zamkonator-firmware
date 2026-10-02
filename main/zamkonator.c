@@ -6,6 +6,7 @@
 #include "nvs_flash.h"
 #include "mdns.h"
 
+#include "auth.h"
 #include "auth_proxy.h"
 #include "background_worker.h"
 #include "config.h"
@@ -14,6 +15,7 @@
 #include "digital_inputs.h"
 #include "esp_littlefs.h"
 #include "ethernet_manager.h"
+#include "event_manager.h"
 #include "mqtt.h"
 #include "outputs.h"
 #include "sdcard.h"
@@ -75,6 +77,10 @@ void app_main(void)
     /* Background worker: deferred saves */
     background_worker_init();
 
+    /* Event fan-out. Started before the network so early events (including
+     * `booted`) are captured; the task tolerates SD/MQTT/WS being down. */
+    event_manager_init();
+
     /* Init network stack before anything that opens sockets */
     ESP_ERROR_CHECK(esp_netif_init());
 
@@ -110,9 +116,14 @@ void app_main(void)
     /* SD card hotplug task */
     sdcard_init();
 
+    /* Auth strategies + cached user database downloader (needs the SD card) */
+    auth_init();
+
     /* Wiegand reader */
     wiegand_init();
 
     /* Digital input polling task */
     digital_inputs_init();
+
+    event_emit_booted();
 }

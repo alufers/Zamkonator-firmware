@@ -16,3 +16,8 @@ bool digital_inputs_door_close_state(bool *closed);
  * When true, *locked is set: true = LOCKED, false = UNLOCKED.
  * If several inputs share the mode, the highest-numbered one wins. */
 bool digital_inputs_door_lock_state(bool *locked);
+
+/* Publish the current level of every input (and the door/lock aliases) to MQTT.
+ * Called on MQTT connect so retained state is resynced without waiting for a
+ * physical edge. No-op until the first poll cycle has run. */
+void digital_inputs_publish_all_states(void);

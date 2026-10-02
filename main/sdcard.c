@@ -1,6 +1,7 @@
 #include "sdcard.h"
 #include "tca_io.h"
 #include "hw.h"
+#include "webserver.h"
 
 #include <dirent.h>
 
@@ -49,6 +50,7 @@ static void sdcard_mount(void)
     sdmmc_card_print_info(stdout, card);
     ESP_LOGI(TAG, "SD card mounted at " SDCARD_MOUNT_POINT " (%llu MB)",
              (uint64_t)card->csd.capacity * card->csd.sector_size / (1024 * 1024));
+    webserver_push_status();
 }
 
 static void sdcard_unmount(void)
@@ -60,6 +62,7 @@ static void sdcard_unmount(void)
     s_mounted = false;
     s_card    = NULL;
     ESP_LOGI(TAG, "SD card removed");
+    webserver_push_status();
 }
 
 static void sdcard_task(void *arg)
