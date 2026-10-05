@@ -219,6 +219,7 @@ static void digital_inputs_task(void *arg)
 
 bool digital_inputs_door_close_state(bool *closed)
 {
+    if (!s_state_mutex) return false;
     xSemaphoreTake(s_state_mutex, portMAX_DELAY);
     bool configured = s_door_close_configured;
     if (configured) *closed = s_door_close_closed;
@@ -228,6 +229,7 @@ bool digital_inputs_door_close_state(bool *closed)
 
 bool digital_inputs_door_lock_state(bool *locked)
 {
+    if (!s_state_mutex) return false;
     xSemaphoreTake(s_state_mutex, portMAX_DELAY);
     bool configured = s_door_lock_configured;
     if (configured) *locked = s_door_lock_locked;

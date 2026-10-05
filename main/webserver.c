@@ -781,6 +781,85 @@ static esp_err_t open_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* ── /api/control ────────────────────────────────────────────────────────── */
+
+/* Manual output triggers for the admin UI. Unlike /api/open these sit behind
+ * the web admin password, not remote_open_password. */
+
+/* Reads the optional duration_ms query param into *out (def when absent).
+ * Sends 400 and returns false when it is present but out of range. */
+static bool parse_duration_query(httpd_req_t *req, int def, int min, int max, int *out)
+{
+    *out = def;
+
+    char query[128] = {0};
+    char val[16]    = {0};
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK ||
+        httpd_query_key_value(query, "duration_ms", val, sizeof(val)) != ESP_OK ||
+        val[0] == '\0')
+        return true;
+
+    char *end;
+    long ms = strtol(val, &end, 10);
+    if (*end != '\0' || ms < min || ms > max) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "duration_ms out of range");
+        return false;
+    }
+    *out = (int)ms;
+    return true;
+}
+
+static esp_err_t control_open_post_handler(httpd_req_t *req)
+{
+    REQUIRE_AUTH(req);
+
+    config_lock();
+    int relay_open_ms = g_config.relay_open_ms;
+    config_unlock();
+
+    int ms;
+    if (!parse_duration_query(req, relay_open_ms, 100, 60000, &ms)) return ESP_OK;
+
+    ESP_LOGI(TAG, "Control: open lock for %d ms", ms);
+    outputs_play_pattern(OUTPUT_RELAY,      ms, 0, 1);
+    outputs_play_pattern(OUTPUT_LED_READER, ms, 0, 1);
+    event_emit_remote_open("admin UI", ms);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
+static esp_err_t control_beep_post_handler(httpd_req_t *req)
+{
+    REQUIRE_AUTH(req);
+
+    int ms;
+    if (!parse_duration_query(req, 200, 10, 5000, &ms)) return ESP_OK;
+
+    ESP_LOGI(TAG, "Control: beep for %d ms", ms);
+    outputs_play_pattern(OUTPUT_BEEPER, ms, 0, 1);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
+static esp_err_t control_led_post_handler(httpd_req_t *req)
+{
+    REQUIRE_AUTH(req);
+
+    int ms;
+    if (!parse_duration_query(req, 3000, 10, 60000, &ms)) return ESP_OK;
+
+    ESP_LOGI(TAG, "Control: reader LED on for %d ms", ms);
+    outputs_play_pattern(OUTPUT_LED_READER, ms, 0, 1);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
 /* ── Early init ──────────────────────────────────────────────────────────── */
 
 void webserver_early_init(void)
@@ -798,7 +877,7 @@ void webserver_start(void)
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 20;
+    config.max_uri_handlers = 24;
     config.stack_size       = 8192;
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
@@ -861,6 +940,21 @@ void webserver_start(void)
         .method  = HTTP_POST,
         .handler = open_post_handler,
     };
+    static const httpd_uri_t uri_control_open = {
+        .uri     = "/api/control/open",
+        .method  = HTTP_POST,
+        .handler = control_open_post_handler,
+    };
+    static const httpd_uri_t uri_control_beep = {
+        .uri     = "/api/control/beep",
+        .method  = HTTP_POST,
+        .handler = control_beep_post_handler,
+    };
+    static const httpd_uri_t uri_control_led = {
+        .uri     = "/api/control/led",
+        .method  = HTTP_POST,
+        .handler = control_led_post_handler,
+    };
     static const httpd_uri_t uri_events_get = {
         .uri     = "/api/events",
         .method  = HTTP_GET,
@@ -887,6 +981,9 @@ void webserver_start(void)
     httpd_register_uri_handler(s_server, &uri_files_list);
     httpd_register_uri_handler(s_server, &uri_files_download);
     httpd_register_uri_handler(s_server, &uri_open_post);
+    httpd_register_uri_handler(s_server, &uri_control_open);
+    httpd_register_uri_handler(s_server, &uri_control_beep);
+    httpd_register_uri_handler(s_server, &uri_control_led);
     httpd_register_uri_handler(s_server, &uri_events_get);
     httpd_register_uri_handler(s_server, &uri_ws);
 

@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 import { AuthContext } from "./AuthContext";
 import { AuthGuard } from "./AuthGuard";
+import { Control } from "./Control";
 import { Files } from "./Files";
 import { Log } from "./Log";
 import { OTA } from "./OTA";
@@ -21,10 +22,11 @@ export function App() {
 /** Cap on retained live events — the device ring is the source of truth for history. */
 const MAX_LIVE_EVENTS = 500;
 
-type TabId = "log" | "settings" | "files" | "ota";
+type TabId = "log" | "control" | "settings" | "files" | "ota";
 
 const TABS = [
   { id: "log", label: "Log" },
+  { id: "control", label: "Control" },
   { id: "settings", label: "Settings" },
   { id: "files", label: "Files" },
   { id: "ota", label: "OTA" },
@@ -36,8 +38,6 @@ function AppInner() {
   const [liveEvents, setLiveEvents] = useState<DeviceEvent[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("log");
 
-  /* The password is only appended when one is set; ws_pre_handshake_cb on the
-   * device skips the check entirely when web auth is disabled. */
   const wsUrl = useMemo(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const auth = password ? `?auth=${encodeURIComponent(password)}` : "";
@@ -75,6 +75,8 @@ function AppInner() {
         <div class="flex-1 overflow-hidden">
           {activeTab === "log" ? (
             <Log liveEvents={liveEvents} />
+          ) : activeTab === "control" ? (
+            <Control />
           ) : activeTab === "settings" ? (
             <Settings />
           ) : activeTab === "files" ? (
