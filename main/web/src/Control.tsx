@@ -1,6 +1,7 @@
 import { useContext, useState } from "preact/hooks";
 import { AuthContext } from "./AuthContext";
 import { Button } from "./ui/Button";
+import { Modal } from "./ui/Modal";
 
 type ControlAction = "open" | "beep" | "led";
 
@@ -55,6 +56,8 @@ export function Control() {
   );
   const [busy, setBusy] = useState<ControlAction | null>(null);
   const [results, setResults] = useState<Partial<Record<ControlAction, Result>>>({});
+  const [confirmReboot, setConfirmReboot] = useState(false);
+  const [reboot, setReboot] = useState<Result | null>(null);
 
   const send = async (action: ControlAction) => {
     const ms = durations[action].trim();
@@ -71,6 +74,17 @@ export function Control() {
     }
     setResults((prev) => ({ ...prev, [action]: result }));
     setBusy(null);
+  };
+
+  const doReboot = async () => {
+    setConfirmReboot(false);
+    const headers: Record<string, string> = password ? { "X-Auth": password } : {};
+    try {
+      const res = await fetch("/api/control/reboot", { method: "POST", headers });
+      setReboot(res.ok ? { ok: true } : { ok: false, error: `${res.status}: ${await res.text()}` });
+    } catch {
+      setReboot({ ok: false, error: "Network error" });
+    }
   };
 
   return (
@@ -111,7 +125,35 @@ export function Control() {
             </div>
           );
         })}
+        <div class="border border-zinc-800 rounded p-3 flex flex-col gap-2">
+          <div class="text-sm text-zinc-200 font-medium">Device</div>
+          <p class="text-xs text-zinc-400">Restart the controller.</p>
+          <div class="flex items-center gap-2">
+            <Button variant="danger" onClick={() => setConfirmReboot(true)}>
+              Reboot
+            </Button>
+            {reboot &&
+              (reboot.ok ? (
+                <span class="text-xs text-green-400">Rebooting....</span>
+              ) : (
+                <span class="text-xs text-red-400">{reboot.error}</span>
+              ))}
+          </div>
+        </div>
       </div>
+
+      {confirmReboot && (
+        <Modal
+          title="Reboot device?"
+          okLabel="Reboot"
+          onOk={() => void doReboot()}
+          onCancel={() => setConfirmReboot(false)}
+        >
+          <p class="text-xs text-zinc-300">
+            The controller will restart and be unreachable for a few seconds.
+          </p>
+        </Modal>
+      )}
     </div>
   );
 }

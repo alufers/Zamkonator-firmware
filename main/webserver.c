@@ -730,6 +730,8 @@ static esp_err_t files_download_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+#define MAX_DOOR_OPEN_MS (5 * 60 * 1000)
+
 /* ── /api/open ───────────────────────────────────────────────────────────── */
 
 static esp_err_t open_post_handler(httpd_req_t *req)
@@ -764,7 +766,7 @@ static esp_err_t open_post_handler(httpd_req_t *req)
 
     if (open_time_str[0]) {
         int override_ms = atoi(open_time_str);
-        if (override_ms >= 100 && override_ms <= 60000)
+        if (override_ms >= 100 && override_ms <= MAX_DOOR_OPEN_MS)
             relay_open_ms = override_ms;
     }
 
@@ -818,7 +820,7 @@ static esp_err_t control_open_post_handler(httpd_req_t *req)
     config_unlock();
 
     int ms;
-    if (!parse_duration_query(req, relay_open_ms, 100, 60000, &ms)) return ESP_OK;
+    if (!parse_duration_query(req, relay_open_ms, 100, MAX_DOOR_OPEN_MS, &ms)) return ESP_OK;
 
     ESP_LOGI(TAG, "Control: open lock for %d ms", ms);
     outputs_play_pattern(OUTPUT_RELAY,      ms, 0, 1);
@@ -857,6 +859,18 @@ static esp_err_t control_led_post_handler(httpd_req_t *req)
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
+static esp_err_t control_reboot_post_handler(httpd_req_t *req)
+{
+    REQUIRE_AUTH(req);
+
+    ESP_LOGI(TAG, "Control: reboot requested");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true,\"rebooting\":true}");
+
+    xTaskCreate(reboot_task, "reboot", 1024, NULL, 5, NULL);
     return ESP_OK;
 }
 
@@ -955,6 +969,11 @@ void webserver_start(void)
         .method  = HTTP_POST,
         .handler = control_led_post_handler,
     };
+    static const httpd_uri_t uri_control_reboot = {
+        .uri     = "/api/control/reboot",
+        .method  = HTTP_POST,
+        .handler = control_reboot_post_handler,
+    };
     static const httpd_uri_t uri_events_get = {
         .uri     = "/api/events",
         .method  = HTTP_GET,
@@ -984,6 +1003,7 @@ void webserver_start(void)
     httpd_register_uri_handler(s_server, &uri_control_open);
     httpd_register_uri_handler(s_server, &uri_control_beep);
     httpd_register_uri_handler(s_server, &uri_control_led);
+    httpd_register_uri_handler(s_server, &uri_control_reboot);
     httpd_register_uri_handler(s_server, &uri_events_get);
     httpd_register_uri_handler(s_server, &uri_ws);
 

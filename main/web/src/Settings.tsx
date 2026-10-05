@@ -335,11 +335,11 @@ export function Settings() {
                     type="number"
                     value={draft.relay_open_ms}
                     min={100}
-                    max={60000}
+                    max={300000}
                     onInput={(e) =>
                       setDraft({
                         ...draft,
-                        relay_open_ms: Math.min(60000, Math.max(100, parseInt((e.target as HTMLInputElement).value) || 8000)),
+                        relay_open_ms: Math.min(300000, Math.max(100, parseInt((e.target as HTMLInputElement).value) || 8000)),
                       })
                     }
                     class="w-28 bg-zinc-800 text-zinc-100 border border-zinc-600 rounded px-2 py-1 text-xs font-mono"
