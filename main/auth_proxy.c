@@ -55,9 +55,10 @@ static void auth_proxy_monitor_task(void *arg)
             continue;
         }
 
-        /* Blink red + reader LED to indicate a health check is starting */
-        outputs_flash_invert(OUTPUT_LED_RED,    100);
-        outputs_flash_invert(OUTPUT_LED_READER, 100);
+        if (!outputs_is_active(OUTPUT_LED_RED))
+            outputs_flash_invert(OUTPUT_LED_RED,    100);
+        if (!outputs_is_active(OUTPUT_LED_READER))
+            outputs_flash_invert(OUTPUT_LED_READER, 100);
 
         char url[320];
         snprintf(url, sizeof(url), "%s/users/-/stats", base_url);
@@ -94,7 +95,8 @@ static void auth_proxy_monitor_task(void *arg)
             ESP_LOGI(TAG, "Auth proxy healthy");
         } else {
             ESP_LOGW(TAG, "Auth proxy unhealthy");
-            outputs_play_pattern(OUTPUT_LED_READER, 100, 100, 5);
+            if (!outputs_is_active(OUTPUT_LED_READER))
+                outputs_play_pattern(OUTPUT_LED_READER, 100, 100, 5);
         }
 
         xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(interval_ms));

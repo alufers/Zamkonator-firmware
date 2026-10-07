@@ -9,6 +9,9 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 static const char *TAG = "outputs";
 
 static const uint8_t k_pins[OUTPUT_COUNT] = {
@@ -30,6 +33,8 @@ typedef struct {
 } output_state_t;
 
 static output_state_t s_states[OUTPUT_COUNT];
+
+static SemaphoreHandle_t s_lock;
 
 /* ── Base state ─────────────────────────────────────────────────────────── */
 
@@ -53,11 +58,13 @@ static bool base_level(output_id_t id)
 
 void outputs_update_base_state(void)
 {
+    xSemaphoreTake(s_lock, portMAX_DELAY);
     for (int i = 0; i < OUTPUT_COUNT; i++) {
         if (s_states[i].repeats_left == 0) {
             tca_io_set_level(k_pins[i], base_level((output_id_t)i));
         }
     }
+    xSemaphoreGive(s_lock);
 }
 
 /* ── Pattern timer ──────────────────────────────────────────────────────── */
@@ -65,6 +72,13 @@ void outputs_update_base_state(void)
 static void pattern_timer_cb(void *arg)
 {
     output_state_t *st = (output_state_t *)arg;
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+
+    if (st->repeats_left == 0 || esp_timer_is_active(st->timer)) {
+        xSemaphoreGive(s_lock);
+        return;
+    }
 
     if (st->in_on_phase) {
         /* Transition from on-phase: set to the "between repeats" level */
@@ -85,6 +99,8 @@ static void pattern_timer_cb(void *arg)
         st->in_on_phase = true;
         esp_timer_start_once(st->timer, (uint64_t)st->on_ms * 1000);
     }
+
+    xSemaphoreGive(s_lock);
 }
 
 /* ── Public API ─────────────────────────────────────────────────────────── */
@@ -94,6 +110,7 @@ void outputs_play_pattern(output_id_t id, int on_ms, int off_ms, int repeats)
     if (id >= OUTPUT_COUNT || repeats <= 0 || on_ms <= 0) return;
 
     output_state_t *st = &s_states[id];
+    xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_timer_stop(st->timer);
 
     st->on_ms        = on_ms;
@@ -104,6 +121,7 @@ void outputs_play_pattern(output_id_t id, int on_ms, int off_ms, int repeats)
 
     tca_io_set_level(k_pins[id], true);
     esp_timer_start_once(st->timer, (uint64_t)on_ms * 1000);
+    xSemaphoreGive(s_lock);
 }
 
 void outputs_flash_invert(output_id_t id, int ms)
@@ -111,6 +129,7 @@ void outputs_flash_invert(output_id_t id, int ms)
     if (id >= OUTPUT_COUNT || ms <= 0) return;
 
     output_state_t *st = &s_states[id];
+    xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_timer_stop(st->timer);
 
     st->on_ms        = ms;
@@ -121,6 +140,7 @@ void outputs_flash_invert(output_id_t id, int ms)
 
     tca_io_set_level(k_pins[id], !base_level(id));
     esp_timer_start_once(st->timer, (uint64_t)ms * 1000);
+    xSemaphoreGive(s_lock);
 }
 
 bool outputs_is_active(output_id_t id)
@@ -134,6 +154,7 @@ void outputs_cancel(output_id_t id)
     if (id >= OUTPUT_COUNT) return;
 
     output_state_t *st = &s_states[id];
+    xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_timer_stop(st->timer);
 
     st->repeats_left = 0;
@@ -141,6 +162,7 @@ void outputs_cancel(output_id_t id)
     st->inverted     = false;
 
     tca_io_set_level(k_pins[id], base_level(id));
+    xSemaphoreGive(s_lock);
 }
 
 static void ip_event_handler(void *arg, esp_event_base_t base,
@@ -154,6 +176,8 @@ static void ip_event_handler(void *arg, esp_event_base_t base,
 
 void outputs_init(void)
 {
+    s_lock = xSemaphoreCreateMutex();
+
     for (int i = 0; i < OUTPUT_COUNT; i++) {
         s_states[i].id           = (output_id_t)i;
         s_states[i].repeats_left = 0;
