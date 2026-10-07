@@ -123,6 +123,26 @@ void outputs_flash_invert(output_id_t id, int ms)
     esp_timer_start_once(st->timer, (uint64_t)ms * 1000);
 }
 
+bool outputs_is_active(output_id_t id)
+{
+    if (id >= OUTPUT_COUNT) return false;
+    return s_states[id].repeats_left > 0;
+}
+
+void outputs_cancel(output_id_t id)
+{
+    if (id >= OUTPUT_COUNT) return;
+
+    output_state_t *st = &s_states[id];
+    esp_timer_stop(st->timer);
+
+    st->repeats_left = 0;
+    st->in_on_phase  = false;
+    st->inverted     = false;
+
+    tca_io_set_level(k_pins[id], base_level(id));
+}
+
 static void ip_event_handler(void *arg, esp_event_base_t base,
                              int32_t event_id, void *data)
 {

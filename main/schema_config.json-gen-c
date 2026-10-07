@@ -37,6 +37,7 @@ struct digital_input_config_t {
     digital_input_mode_t mode;
     bool inverted;
     int debounce_ms;
+    bool relay_off_on_open;   // door_close_sensor only: de-energise relay on closed→open edge
 }
 
 struct mqtt_config_t {

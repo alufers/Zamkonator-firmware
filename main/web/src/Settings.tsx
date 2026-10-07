@@ -14,6 +14,7 @@ interface DigitalInputConfig {
   mode: DigitalInputMode;
   inverted: boolean;
   debounce_ms: number;
+  relay_off_on_open: boolean;
 }
 
 interface MqttConfig {
@@ -115,6 +116,20 @@ function DigitalInput({
         />
         <span class="text-xs text-zinc-300">Inverted (active-low signal)</span>
       </label>
+
+      {value.mode === "door_close_sensor" && (
+        <label class="flex items-center gap-2 cursor-pointer select-none mt-2">
+          <input
+            type="checkbox"
+            checked={value.relay_off_on_open}
+            onChange={(e) =>
+              onChange({ ...value, relay_off_on_open: (e.target as HTMLInputElement).checked })
+            }
+            class="w-4 h-4 accent-blue-500"
+          />
+          <span class="text-xs text-zinc-300">Turn off relay after opening door</span>
+        </label>
+      )}
     </div>
   );
 }

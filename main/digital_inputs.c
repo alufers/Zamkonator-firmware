@@ -116,6 +116,16 @@ static bool handle_input_change(int idx, int mode, bool logical_level)
      * has not recomputed yet, so pushing here would send a stale payload. */
     case digital_input_mode_t_door_close_sensor:
         ESP_LOGI(TAG, "INP%d: door %s", idx + 1, logical_level ? "CLOSED" : "OPEN");
+        if (!logical_level && outputs_is_active(OUTPUT_RELAY)) {
+            config_lock();
+            bool relay_off = input_cfg(idx)->relay_off_on_open;
+            config_unlock();
+            if (relay_off) {
+                ESP_LOGI(TAG, "INP%d: door opened, disabling relay", idx + 1);
+                outputs_cancel(OUTPUT_RELAY);
+                outputs_cancel(OUTPUT_LED_READER);
+            }
+        }
         event_emit_door_state(logical_level);
         return true;
 

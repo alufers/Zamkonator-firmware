@@ -29,3 +29,8 @@ void outputs_play_pattern(output_id_t id, int on_ms, int off_ms, int repeats);
  * Used to produce a visible "blink" on outputs that are ON by default
  * (e.g. green LED while IP is present) or to flash outputs that are OFF. */
 void outputs_flash_invert(output_id_t id, int ms);
+
+bool outputs_is_active(output_id_t id);
+
+/* Stop any running pattern on the output and return it to its base state. */
+void outputs_cancel(output_id_t id);

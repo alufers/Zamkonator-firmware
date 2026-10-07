@@ -112,14 +112,17 @@ void config_init(void)
     g_config.input_inp1.mode        = digital_input_mode_t_none;
     g_config.input_inp1.inverted    = false;
     g_config.input_inp1.debounce_ms = 300;
+    g_config.input_inp1.relay_off_on_open = false;
 
     g_config.input_inp2.mode        = digital_input_mode_t_none;
     g_config.input_inp2.inverted    = false;
     g_config.input_inp2.debounce_ms = 300;
+    g_config.input_inp2.relay_off_on_open = false;
 
     g_config.input_inp3.mode        = digital_input_mode_t_none;
     g_config.input_inp3.inverted    = false;
     g_config.input_inp3.debounce_ms = 300;
+    g_config.input_inp3.relay_off_on_open = false;
 
     g_config.remote_open_password = sstr("");
 
