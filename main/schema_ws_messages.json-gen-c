@@ -3,6 +3,24 @@
 
 // ── Server → client payloads ──────────────────────────────────────────────────
 
+struct network_status_t {
+    sstr_t hostname;
+    sstr_t mac;                
+    bool link_up;               
+    nullable int speed_mbps;    
+    nullable bool full_duplex;  
+    int link_down_count;       
+    nullable int64_t link_up_since;  
+    bool dhcp_enabled;          
+    bool got_ip;                 
+    nullable int64_t ip_acquired_at;
+    sstr_t ip;
+    sstr_t netmask;
+    sstr_t gateway;
+    sstr_t dns[];
+    sstr_t ipv6[];
+}
+
 struct ws_status_payload_t {
     int64_t uptime;        // seconds since boot
     int64_t time;          // Unix timestamp
@@ -11,6 +29,7 @@ struct ws_status_payload_t {
     bool auth_proxy_healthy;
     nullable bool door_close_sensor_closed;  // null if not configured
     nullable bool door_lock_sensor_locked;   // null if not configured
+    optional network_status_t network;       // only in GET /api/status
 }
 
 struct ws_console_msg_t {

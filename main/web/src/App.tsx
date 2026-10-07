@@ -6,6 +6,7 @@ import { Files } from "./Files";
 import { Log } from "./Log";
 import { OTA } from "./OTA";
 import { Settings } from "./Settings";
+import { Status } from "./Status";
 import { TopBar } from "./TopBar";
 import { Tabs } from "./ui/Tabs";
 import { useJsonWebsocket, ReadyState } from "./useWebsocket";
@@ -22,11 +23,12 @@ export function App() {
 /** Cap on retained live events — the device ring is the source of truth for history. */
 const MAX_LIVE_EVENTS = 500;
 
-type TabId = "log" | "control" | "settings" | "files" | "ota";
+type TabId = "log" | "control" | "status" | "settings" | "files" | "ota";
 
 const TABS = [
   { id: "log", label: "Log" },
   { id: "control", label: "Control" },
+  { id: "status", label: "Status" },
   { id: "settings", label: "Settings" },
   { id: "files", label: "Files" },
   { id: "ota", label: "OTA" },
@@ -77,6 +79,8 @@ function AppInner() {
             <Log liveEvents={liveEvents} />
           ) : activeTab === "control" ? (
             <Control />
+          ) : activeTab === "status" ? (
+            <Status />
           ) : activeTab === "settings" ? (
             <Settings />
           ) : activeTab === "files" ? (

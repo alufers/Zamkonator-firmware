@@ -3,7 +3,7 @@ import { Button } from "./ui/Button";
 import { Chip } from "./ui/Chip";
 import { StatusPayload, MqttStatus } from "./wsTypes";
 
-function formatUptime(seconds: number): string {
+export function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);

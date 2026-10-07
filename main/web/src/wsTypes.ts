@@ -6,6 +6,26 @@ export interface InfoResponse {
 
 export type MqttStatus = "unconfigured" | "connecting" | "connected" | "disconnected";
 
+export interface NetworkStatus {
+  hostname: string;
+  mac: string;
+  link_up: boolean;
+  speed_mbps: number | null;
+  full_duplex: boolean | null;
+  link_down_count: number;
+  /** Seconds since boot of the last link-up, null while down. */
+  link_up_since: number | null;
+  dhcp_enabled: boolean;
+  got_ip: boolean;
+  /** Seconds since boot of the last GOT_IP event. */
+  ip_acquired_at: number | null;
+  ip: string;
+  netmask: string;
+  gateway: string;
+  dns: string[];
+  ipv6: string[];
+}
+
 export interface StatusPayload {
   uptime: number;
   time: number;
@@ -14,6 +34,8 @@ export interface StatusPayload {
   auth_proxy_healthy: boolean;
   door_close_sensor_closed?: boolean | null;
   door_lock_sensor_locked?: boolean | null;
+  /** Only present in GET /api/status, never in the WS broadcast. */
+  network?: NetworkStatus;
 }
 
 /* ── Events ─────────────────────────────────────────────────────────────── */

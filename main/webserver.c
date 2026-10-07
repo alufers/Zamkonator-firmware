@@ -298,6 +298,8 @@ static esp_err_t status_get_handler(httpd_req_t *req)
 
     struct ws_status_payload_t p;
     build_status_payload(&p);
+    p.has_network = true;
+    ethernet_manager_get_status(&p.network);
 
     sstr_t json = sstr_new();
     json_marshal_indent_ws_status_payload_t(&p, 0, 0, json);

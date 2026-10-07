@@ -109,20 +109,10 @@ void app_main(void)
 
     /* MQTT init */
     mqtt_init();
-
-    /* Auth proxy health monitor (uses outputs, must come after outputs_init) */
     auth_proxy_monitor_init();
-
-    /* SD card hotplug task */
     sdcard_init();
-
-    /* Auth strategies + cached user database downloader (needs the SD card) */
     auth_init();
-
-    /* Wiegand reader */
     wiegand_init();
-
-    /* Digital input polling task */
     digital_inputs_init();
 
     event_emit_booted();
