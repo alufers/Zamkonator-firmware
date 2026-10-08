@@ -90,7 +90,13 @@ export interface EvPushToExit {
 export interface EvRemoteOpen {
   type: "remote_open";
   reason?: string | null;
+  username?: string | null;
   open_time_ms: number;
+}
+
+export interface EvAuthProxyStateChanged {
+  type: "auth_proxy_state_changed";
+  available: boolean;
 }
 
 export type EventPayload =
@@ -100,7 +106,8 @@ export type EventPayload =
   | EvDoorStateChanged
   | EvLockStateChanged
   | EvPushToExit
-  | EvRemoteOpen;
+  | EvRemoteOpen
+  | EvAuthProxyStateChanged;
 
 export interface DeviceEvent {
   seq: number;

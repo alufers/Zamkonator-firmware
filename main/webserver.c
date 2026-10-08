@@ -746,6 +746,11 @@ static esp_err_t open_post_handler(httpd_req_t *req)
 
     char reason[128] = {0};
     httpd_query_key_value(query, "reason", reason, sizeof(reason));
+    url_decode(reason);
+
+    char username[128] = {0};
+    httpd_query_key_value(query, "username", username, sizeof(username));
+    url_decode(username);
 
     char open_time_str[32] = {0};
     httpd_query_key_value(query, "open_time_ms", open_time_str, sizeof(open_time_str));
@@ -772,13 +777,14 @@ static esp_err_t open_post_handler(httpd_req_t *req)
             relay_open_ms = override_ms;
     }
 
-    ESP_LOGI(TAG, "Remote open: reason='%s' open_time_ms=%d",
-             reason[0] ? reason : "(none)", relay_open_ms);
+    ESP_LOGI(TAG, "Remote open: reason='%s' username='%s' open_time_ms=%d",
+             reason[0] ? reason : "(none)", username[0] ? username : "(none)",
+             relay_open_ms);
 
     outputs_play_pattern(OUTPUT_RELAY,      relay_open_ms, 0, 1);
     outputs_play_pattern(OUTPUT_LED_READER, relay_open_ms, 0, 1);
 
-    event_emit_remote_open(reason, relay_open_ms);
+    event_emit_remote_open(reason, username, relay_open_ms);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");
@@ -827,7 +833,7 @@ static esp_err_t control_open_post_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Control: open lock for %d ms", ms);
     outputs_play_pattern(OUTPUT_RELAY,      ms, 0, 1);
     outputs_play_pattern(OUTPUT_LED_READER, ms, 0, 1);
-    event_emit_remote_open("admin UI", ms);
+    event_emit_remote_open("admin UI", NULL, ms);
 
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");

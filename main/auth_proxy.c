@@ -1,6 +1,7 @@
 #include "auth_proxy.h"
 #include "auth.h"
 #include "config.h"
+#include "event_manager.h"
 #include "outputs.h"
 #include "webserver.h"
 
@@ -14,6 +15,7 @@
 static const char *TAG = "auth_proxy";
 
 static volatile bool s_healthy = false;
+static bool          s_reported = false;  /* first check result emitted */
 static TaskHandle_t  s_task    = NULL;
 
 bool auth_proxy_is_healthy(void)
@@ -83,6 +85,12 @@ static void auth_proxy_monitor_task(void *arg)
 
         bool prev = s_healthy;
         s_healthy = ok;
+        /* Log the first result too, so the log shows the state after boot
+         * even when the proxy starts out unreachable. */
+        if (prev != ok || !s_reported) {
+            s_reported = true;
+            event_emit_auth_proxy_state(ok);
+        }
         if (prev != ok) {
             outputs_update_base_state();
             webserver_push_status();

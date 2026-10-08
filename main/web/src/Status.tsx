@@ -57,7 +57,6 @@ export function Status() {
       <div class="max-w-lg mx-auto">
         <div class="flex items-center gap-3 mb-4">
           <Button onClick={() => void load()}>Refresh</Button>
-          <span class="text-xs text-zinc-600">Auto-refreshes every {POLL_MS / 1000}s</span>
           {error && <span class="text-xs text-red-400">{error}</span>}
         </div>
 

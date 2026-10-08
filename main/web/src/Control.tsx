@@ -20,7 +20,7 @@ const ACTIONS: ActionDef[] = [
   {
     id: "open",
     title: "Lock",
-    description: "Energise the relay to open the door. Logged as a remote open.",
+    description: "",
     button: "Open lock",
     variant: "danger",
     defaultMs: "",
@@ -127,7 +127,6 @@ export function Control() {
         })}
         <div class="border border-zinc-800 rounded p-3 flex flex-col gap-2">
           <div class="text-sm text-zinc-200 font-medium">Device</div>
-          <p class="text-xs text-zinc-400">Restart the controller.</p>
           <div class="flex items-center gap-2">
             <Button variant="danger" onClick={() => setConfirmReboot(true)}>
               Reboot
@@ -149,9 +148,7 @@ export function Control() {
           onOk={() => void doReboot()}
           onCancel={() => setConfirmReboot(false)}
         >
-          <p class="text-xs text-zinc-300">
-            The controller will restart and be unreachable for a few seconds.
-          </p>
+          
         </Modal>
       )}
     </div>

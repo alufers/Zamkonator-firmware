@@ -10,6 +10,7 @@ import {
   LockOpen,
   Power,
   Radio,
+  Server,
   Unlock,
 } from "lucide-preact";
 import { AuthContext } from "./AuthContext";
@@ -147,9 +148,23 @@ function present(p: EventPayload): Presentation {
         cls: "text-blue-400 border-blue-900",
         detail: (
           <>
+            {p.username && <Field label="user" value={p.username} />}
             {p.reason && <Field label="reason" value={p.reason} />}
             <Field label="for" value={`${p.open_time_ms} ms`} />
           </>
+        ),
+      };
+
+    case "auth_proxy_state_changed":
+      return {
+        icon: <Server size={13} />,
+        label: "auth proxy",
+        cls: p.available ? "text-green-400 border-green-900" : "text-red-400 border-red-900",
+        detail: (
+          <Badge
+            text={p.available ? "AVAILABLE" : "UNAVAILABLE"}
+            cls={p.available ? "text-green-400 border-green-900" : "text-red-400 border-red-900"}
+          />
         ),
       };
 

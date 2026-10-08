@@ -39,6 +39,7 @@ static const char *const k_type_names[] = {
     [event_payload_t_lock_state_changed] = "lock_state_changed",
     [event_payload_t_push_to_exit]       = "push_to_exit",
     [event_payload_t_remote_open]        = "remote_open",
+    [event_payload_t_auth_proxy_state_changed] = "auth_proxy_state_changed",
 };
 
 const char *event_manager_type_name(int payload_tag)
@@ -370,7 +371,8 @@ void event_emit_push_to_exit(int input_idx)
     event_manager_submit(&p);
 }
 
-void event_emit_remote_open(const char *reason, int open_time_ms)
+void event_emit_remote_open(const char *reason, const char *username,
+                            int open_time_ms)
 {
     struct event_payload_t p;
     event_payload_t_init(&p);
@@ -379,7 +381,20 @@ void event_emit_remote_open(const char *reason, int open_time_ms)
         p.value.remote_open.has_reason = 1;
         p.value.remote_open.reason     = sstr(reason);
     }
+    if (username && username[0]) {
+        p.value.remote_open.has_username = 1;
+        p.value.remote_open.username     = sstr(username);
+    }
     p.value.remote_open.open_time_ms = open_time_ms;
+    event_manager_submit(&p);
+}
+
+void event_emit_auth_proxy_state(bool available)
+{
+    struct event_payload_t p;
+    event_payload_t_init(&p);
+    p.tag = event_payload_t_auth_proxy_state_changed;
+    p.value.auth_proxy_state_changed.available = available;
     event_manager_submit(&p);
 }
 

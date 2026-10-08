@@ -32,7 +32,9 @@ void event_emit_card_scanned(const struct ev_card_scanned_t *scan);
 void event_emit_door_state(bool closed);
 void event_emit_lock_state(bool locked);
 void event_emit_push_to_exit(int input_idx);   /* 1-based slot number */
-void event_emit_remote_open(const char *reason, int open_time_ms);
+void event_emit_remote_open(const char *reason, const char *username,
+                            int open_time_ms);
+void event_emit_auth_proxy_state(bool available);
 
 /* ── Consumers ───────────────────────────────────────────────────────────── */
 

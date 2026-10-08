@@ -69,9 +69,11 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         "${WEB_DIR}/src/*.ts"
         "${WEB_DIR}/src/*.tsx"
         "${WEB_DIR}/src/*.css"
-        "${WEB_DIR}/index.html"
     )
+  # Not in the recursive glob: "${WEB_DIR}/index.html" there also matches
+  # dist/index.html, which is an output of the build below.
   set(WEB_CONFIG_FILES
+        "${WEB_DIR}/index.html"
         "${WEB_DIR}/package.json"
         "${WEB_DIR}/tsconfig.json"
         "${WEB_DIR}/vite.config.js"
@@ -84,6 +86,12 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         COMMAND pnpm install --frozen-lockfile
         COMMAND pnpm run build
         COMMAND "${CMAKE_COMMAND}" -E touch "${PNPM_STAMP}"
+        # Declared so Ninja knows the embedded files come from this step and
+        # re-embeds them in the same build, instead of the stale previous dist.
+        BYPRODUCTS
+            "${WEB_DIST_DIR}/index.html"
+            "${WEB_DIST_DIR}/app.js"
+            "${WEB_DIST_DIR}/app.css"
         WORKING_DIRECTORY ${WEB_DIR}
         DEPENDS ${WEB_SRC_FILES} ${WEB_CONFIG_FILES}
         COMMENT "Building frontend (pnpm)..."

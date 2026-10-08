@@ -52,7 +52,12 @@ struct ev_push_to_exit_t {
 
 struct ev_remote_open_t {
     nullable sstr_t reason;
+    nullable sstr_t username;
     int open_time_ms;
+}
+
+struct ev_auth_proxy_state_changed_t {
+    bool available;
 }
 
 oneof event_payload_t {
@@ -64,6 +69,7 @@ oneof event_payload_t {
     ev_lock_state_changed_t lock_state_changed;
     ev_push_to_exit_t       push_to_exit;
     ev_remote_open_t        remote_open;
+    ev_auth_proxy_state_changed_t auth_proxy_state_changed;
 }
 
 // ── Envelope ──────────────────────────────────────────────────────────────────
